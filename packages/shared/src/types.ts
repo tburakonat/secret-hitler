@@ -44,11 +44,19 @@ export interface GameStateSync {
   phase: GamePhase;
   presidentId: string;
   chancellorId: string | null;
+  lastPresidentId: string | null;
+  lastChancellorId: string | null;
   electionTracker: number;
   liberalPolicies: number;
   fascistPolicies: number;
   vetoUnlocked: boolean;
   players: Array<Pick<Player, 'id' | 'nickname' | 'isAlive' | 'seatIndex'>>;
+  isSpecialElection?: boolean;
+  specialElectionReturnId?: string | null;
+  /** Only set on private reconnect emits — tells the receiving socket which player they are. */
+  selfId?: string;
+  /** Only set on private reconnect emits — tells the receiving socket who the host is. */
+  hostId?: string;
 }
 
 // ─── Client → Server payloads ────────────────────────────────────────────────
@@ -94,15 +102,28 @@ export interface ExecutiveChoosePlayerPayload {
 
 // ─── Server → Client payloads ────────────────────────────────────────────────
 
+export interface LobbyUpdateSettingsPayload {
+  isPublic: boolean;
+  maxPlayers: number;
+}
+
 export interface LobbyUpdatedPayload {
+  lobbyId: string;
+  code: string;
   players: Player[];
   hostId: string;
+  maxPlayers: number;
+  isPublic: boolean;
+  /** Only set on private emits — tells the receiving socket which player they are. */
+  selfId?: string;
 }
 
 export interface GameRoleAssignedPayload {
   role: Role;
   /** Fascists receive their teammates. Hitler receives teammates only in 5-player games. */
   teammates?: { id: string; nickname: string; role: 'fascist' | 'hitler' }[];
+  /** Only set on reconnect — restores the player's vote if they already voted this round. */
+  myVote?: Vote;
 }
 
 export interface GameStartedPayload {
@@ -114,6 +135,10 @@ export interface GameStartedPayload {
 export interface NominationMadePayload {
   presidentId: string;
   chancellorId: string;
+}
+
+export interface ElectionVoteCastPayload {
+  voteCount: number;
 }
 
 export interface ElectionResultPayload {
@@ -138,6 +163,12 @@ export interface LegislativePolicyEnactedPayload {
   electionTracker: number;
 }
 
+export type LegislativeVetoRequestedPayload = Record<string, never>;
+
+export interface LegislativeVetoResolvedPayload {
+  accepted: boolean;
+}
+
 export interface ExecutiveActionRequiredPayload {
   action: ExecutiveAction;
 }
@@ -151,15 +182,31 @@ export interface ExecutivePeekResultPayload {
   cards: [PolicyType, PolicyType, PolicyType];
 }
 
+export interface ExecutiveSpecialElectionPayload {
+  newPresidentId: string;
+}
+
 export interface ExecutivePlayerExecutedPayload {
   playerId: string;
   wasHitler: boolean;
+}
+
+export interface ExecutiveInspectConfirmedPayload {
+  inspectedPlayerId: string;
+  presidentId: string;
 }
 
 export interface GameOverPayload {
   winner: Winner;
   condition: WinCondition;
   roles: Record<string, Role>;
+}
+
+export interface GameAbortedPayload {
+  lobbyId: string;
+  code: string;
+  players: Player[];
+  hostId: string;
 }
 
 export interface ErrorPayload {

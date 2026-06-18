@@ -1,21 +1,18 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
-
-function Home() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-950 text-white">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold tracking-tight">Secret Hitler</h1>
-        <p className="mt-2 text-gray-400">Multiplayer coming soon.</p>
-      </div>
-    </div>
-  );
-}
+import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
+import HomePage from './pages/HomePage';
+import LobbyPage from './pages/LobbyPage';
+import GamePage from './pages/GamePage';
+import { Navbar } from './components/ui/Navbar';
 
 export default function App() {
   return (
     <BrowserRouter>
+      <Navbar />
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/"      element={<HomePage />} />
+        <Route path="/lobby" element={<LobbyPage />} />
+        <Route path="/game"  element={<GamePage />} />
+        <Route path="*"      element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

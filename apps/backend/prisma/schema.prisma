@@ -1,10 +1,10 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model Lobby {
@@ -54,12 +54,13 @@ model Game {
 model GamePlayer {
   id          String  @id @default(uuid())
   gameId      String
-  playerId    String
+  playerId    String?
+  nickname    String? @db.VarChar(32)
   role        Role
   wasExecuted Boolean @default(false)
 
-  game   Game   @relation(fields: [gameId], references: [id])
-  player Player @relation(fields: [playerId], references: [id])
+  game   Game    @relation(fields: [gameId], references: [id])
+  player Player? @relation(fields: [playerId], references: [id], onDelete: SetNull)
 }
 
 model Round {

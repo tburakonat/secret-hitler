@@ -28,6 +28,8 @@ export const SOCKET_EVENTS = {
   LOBBY_JOIN: 'lobby:join',
   LOBBY_RECONNECT: 'lobby:reconnect',
   LOBBY_START: 'lobby:start',
+  LOBBY_UPDATE_SETTINGS: 'lobby:update_settings',
+  LOBBY_LEAVE: 'lobby:leave',
   // Lobby — S → C
   LOBBY_UPDATED: 'lobby:updated',
 
@@ -45,6 +47,7 @@ export const SOCKET_EVENTS = {
   // Election — C → S
   ELECTION_VOTE: 'election:vote',
   // Election — S → C
+  ELECTION_VOTE_CAST: 'election:vote_cast',
   ELECTION_RESULT: 'election:result',
 
   // Legislative — C → S
@@ -56,14 +59,28 @@ export const SOCKET_EVENTS = {
   LEGISLATIVE_PRESIDENT_CARDS: 'legislative:president_cards',
   LEGISLATIVE_CHANCELLOR_CARDS: 'legislative:chancellor_cards',
   LEGISLATIVE_POLICY_ENACTED: 'legislative:policy_enacted',
+  LEGISLATIVE_VETO_REQUESTED: 'legislative:veto_requested',
+  LEGISLATIVE_VETO_RESOLVED: 'legislative:veto_resolved',
 
   // Executive — C → S
   EXECUTIVE_CHOOSE_PLAYER: 'executive:choose_player',
+  EXECUTIVE_PEEK_CONFIRM: 'executive:peek_confirm',
+  EXECUTIVE_INSPECT_CONFIRM: 'executive:inspect_confirm',
   // Executive — S → C
   EXECUTIVE_ACTION_REQUIRED: 'executive:action_required',
   EXECUTIVE_INSPECT_RESULT: 'executive:inspect_result',
+  EXECUTIVE_SPECIAL_ELECTION: 'executive:special_election',
   EXECUTIVE_PEEK_RESULT: 'executive:peek_result',
   EXECUTIVE_PLAYER_EXECUTED: 'executive:player_executed',
+  EXECUTIVE_INSPECT_CONFIRMED: 'executive:inspect_confirmed',
+
+  // Game abort — C → S
+  GAME_ABORT: 'game:abort',
+  // Game abort — S → C
+  GAME_ABORTED: 'game:aborted',
+
+  // Return to lobby after game end (individual per player) — C → S
+  LOBBY_RETURN: 'lobby:return',
 
   // Error — S → C (private)
   ERROR: 'error',
