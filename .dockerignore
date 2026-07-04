@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+.pnpm-store
+dist
+**/dist
+.turbo
+**/.turbo
+.git
+.DS_Store
+**/.DS_Store
+*.log
+.env
+.env.local
+apps/backend/src/generated
