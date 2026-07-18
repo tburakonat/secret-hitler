@@ -1,27 +1,33 @@
+# Production stack. Deploy: cp .env.example .env, set secrets, docker compose up -d --build
+# Local dev: docker compose up -d postgres redis && pnpm dev
+# Dev tools (pgadmin, redisinsight): docker compose --profile tools up -d
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: secret-hitler-postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: secret_hitler
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-secret_hitler}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     ports:
-      - "5432:5432"
+      # Loopback only: reachable for local dev, not exposed on a server.
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
-    container_name: secret-hitler-redis
-    ports:
-      - "6379:6379"
+    restart: unless-stopped
     command: redis-server --save 60 1
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -32,16 +38,28 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
-    container_name: secret-hitler-backend
+    restart: unless-stopped
     environment:
+      NODE_ENV: production
       PORT: "3000"
-      NODE_ENV: development
-      CLIENT_ORIGIN: http://localhost:5173
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/secret_hitler
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-secret_hitler}
       REDIS_URL: redis://redis:6379
-      COOKIE_SECRET: change-me-in-production
-    ports:
-      - "3000:3000"
+      COOKIE_SECRET: ${COOKIE_SECRET:?Set COOKIE_SECRET in .env}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      # CLIENT_ORIGIN intentionally unset: same-origin via the frontend nginx proxy.
+    # No host port: only reachable through the frontend nginx proxy.
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,32 +70,37 @@ services:
     build:
       context: .
       dockerfile: apps/frontend/Dockerfile
-      args:
-        VITE_BACKEND_URL: http://localhost:3000
-    container_name: secret-hitler-frontend
+    restart: unless-stopped
     ports:
-      - "5173:80"
+      - "${APP_PORT:-8080}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
   redisinsight:
     image: redis/redisinsight:latest
-    container_name: secret-hitler-redisinsight
+    profiles: ["tools"]
     ports:
-      - "8001:5540"
+      - "127.0.0.1:8001:5540"
     depends_on:
       - redis
 
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: secret-hitler-pgadmin
+    profiles: ["tools"]
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@admin.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
     ports:
-      - "5050:80"
+      - "127.0.0.1:5050:80"
     depends_on:
       - postgres
 
 volumes:
   postgres_data:
+  redis_data:

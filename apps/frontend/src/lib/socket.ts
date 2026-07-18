@@ -14,13 +14,18 @@ import {
   type ExecutiveChoosePlayerPayload,
 } from '@secret-hitler/shared';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL as string;
+// Leer = same-origin (nginx-Proxy in Prod, Vite-Proxy in Dev). Nur für Split-Deployments gesetzt.
+const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? '';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const socket: Socket<any, any> = io(BACKEND_URL, {
+const socketOptions = {
   autoConnect: false,
   withCredentials: true,
-});
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const socket: Socket<any, any> = BACKEND_URL
+  ? io(BACKEND_URL, socketOptions)
+  : io(socketOptions);
 
 // ─── Typisierte Emit-Wrapper ──────────────────────────────────────────────────
 

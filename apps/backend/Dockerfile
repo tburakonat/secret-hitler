@@ -24,12 +24,25 @@ COPY --from=pruner /app/out/full/ .
 COPY tsconfig.base.json ./tsconfig.base.json
 RUN pnpm turbo run build --filter=backend...
 
+# ─── Production dependencies only ───────────────────────────────────────────
+FROM base AS prod-deps
+COPY --from=pruner /app/out/json/ .
+RUN pnpm install --prod --frozen-lockfile
+
 # ─── Runtime image ──────────────────────────────────────────────────────────
-FROM base AS runner
+FROM node:20-slim AS runner
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 WORKDIR /app
-COPY --from=installer /app .
+COPY --from=prod-deps /app .
+COPY --from=installer /app/packages/shared/dist ./packages/shared/dist
+COPY --from=installer /app/apps/backend/dist ./apps/backend/dist
+COPY --from=installer /app/apps/backend/prisma ./apps/backend/prisma
+COPY --from=installer /app/apps/backend/prisma.config.ts ./apps/backend/prisma.config.ts
 
+WORKDIR /app/apps/backend
 EXPOSE 3000
 
-CMD ["sh", "-c", "pnpm --filter backend exec prisma migrate deploy && node apps/backend/dist/index.js"]
+CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && node dist/index.js"]

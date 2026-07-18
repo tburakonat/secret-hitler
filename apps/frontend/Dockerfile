@@ -21,8 +21,9 @@ COPY --from=pruner /app/out/full/ .
 COPY tsconfig.base.json ./tsconfig.base.json
 
 # Vite inlines VITE_* variables at build time, so this must be a build arg,
-# not a runtime environment variable.
-ARG VITE_BACKEND_URL=http://localhost:3000
+# not a runtime environment variable. Empty = same-origin (nginx proxies /api
+# and /socket.io to the backend); only set it for split deployments.
+ARG VITE_BACKEND_URL=""
 ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
 
 RUN pnpm turbo run build --filter=frontend...

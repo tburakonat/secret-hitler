@@ -11,7 +11,8 @@ secret-hitler/
 │   └── shared/            # Shared TypeScript types and constants
 │       ├── types.ts
 │       └── constants.ts
-├── docker-compose.yml     # Local Redis + PostgreSQL
+├── docker-compose.yml     # Full production stack (also used for dev infra)
+├── .env.example           # Template for the deployment .env
 ├── turbo.json
 ├── package.json           # pnpm workspace root
 └── CLAUDE.md
@@ -55,15 +56,15 @@ Both `apps/frontend` and `apps/backend` import from `@secret-hitler/shared`.
 |------|---------|
 | PostgreSQL | Persistent storage (lobbies, players, finished games) |
 | Redis | Active game state (fast, ephemeral, TTL 24h) |
-| Docker Compose | Local dev: runs PostgreSQL and Redis |
+| Docker Compose | Production stack and local dev infrastructure |
 
 ## Local development setup
 
 PostgreSQL and Redis run in Docker. The Node.js apps run directly on the host for fast HMR and Claude Code compatibility.
 
 ```bash
-# Start infrastructure
-docker compose up -d
+# Start infrastructure (only the two databases, not the app containers)
+docker compose up -d postgres redis
 
 # Install all dependencies
 pnpm install
@@ -72,16 +73,26 @@ pnpm install
 pnpm dev
 ```
 
+The Vite dev server proxies `/api` and `/socket.io` to the backend on port 3000, so no `VITE_BACKEND_URL` is needed. Optional dev tools (pgAdmin, RedisInsight): `docker compose --profile tools up -d`.
+
 ## Deployment
 
-| Service | Platform |
-|---------|---------|
-| Frontend | Vercel (free tier, auto-deploy from main branch) |
-| Backend | Railway (includes Redis and PostgreSQL plugins) |
+The whole stack deploys with Docker Compose on any host (single-origin setup):
+
+```bash
+cp .env.example .env    # set POSTGRES_PASSWORD and COOKIE_SECRET
+docker compose up -d --build
+# App is served on http://<host>:${APP_PORT:-8080}
+```
+
+- The frontend container (nginx) serves the static build **and reverse-proxies** `/api` and `/socket.io` to the backend container — the stack exposes exactly one port, and the frontend image is environment-agnostic (no baked-in backend URL).
+- The backend runs `prisma migrate deploy` on startup, then boots the server.
+- Cookies are `SameSite=Lax`, so the stack works on plain HTTP. For HTTPS, point any TLS reverse proxy (Caddy, Traefik, nginx) at the app port and set `COOKIE_SECURE=true` in `.env`.
+- Split deployments (frontend and backend on different origins, e.g. Vercel + Railway) are still possible: build the frontend with the `VITE_BACKEND_URL` build arg and set `CLIENT_ORIGIN` on the backend (enables CORS and switches cookies to `SameSite=None; Secure`, which requires HTTPS).
 
 The frontend communicates with the backend via:
-- REST (HTTP) for lobby creation and joining
-- WebSocket (Socket.io) for all real-time game events
+- REST (HTTP) under `/api` for session and lobby listing
+- WebSocket (Socket.io) under `/socket.io` for all real-time game events
 
 ## Future login extension
 

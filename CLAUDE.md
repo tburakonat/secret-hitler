@@ -11,6 +11,7 @@ A real-time multiplayer web implementation of the board game **Secret Hitler** (
 | File | Contents |
 |------|----------|
 | `docs/ARCHITECTURE.md` | Monorepo structure, tech stack, deployment |
+| `docs/DEPLOYMENT.md` | Container architecture, how to deploy and operate the app (German) |
 | `docs/GAME_RULES.md` | Full game rules and logic reference |
 | `docs/DATABASE.md` | PostgreSQL schema, Redis state, Prisma setup |
 | `docs/SOCKETIO.md` | All Socket.io events, payloads, and direction |
