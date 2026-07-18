@@ -1,11 +1,20 @@
 import { useTranslation } from 'react-i18next';
 
-const LANGUAGES = ['de', 'en'] as const;
+const LANGUAGES = ['de', 'en', 'tr'] as const;
 type Lang = typeof LANGUAGES[number];
+
+const LANGUAGE_LABELS: Record<Lang, string> = {
+  de: 'Deutsch',
+  en: 'English',
+  tr: 'Türkçe',
+};
 
 export function Navbar() {
   const { i18n } = useTranslation();
-  const current: Lang = i18n.language.startsWith('de') ? 'de' : 'en';
+  const baseLang = i18n.language.split('-')[0];
+  const current: Lang = (LANGUAGES as readonly string[]).includes(baseLang)
+    ? (baseLang as Lang)
+    : 'en';
 
   function setLanguage(lang: Lang) {
     i18n.changeLanguage(lang);
@@ -16,21 +25,17 @@ export function Navbar() {
     <nav className="sticky top-0 z-40 flex items-center justify-between border-b border-gray-800 bg-gray-900 px-4 py-2">
       <span className="text-sm font-semibold tracking-wide text-white">Secret Hitler</span>
 
-      <div className="flex rounded-md border border-gray-700 p-0.5">
+      <select
+        value={current}
+        onChange={(e) => setLanguage(e.target.value as Lang)}
+        className="rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs font-medium text-white"
+      >
         {LANGUAGES.map((lang) => (
-          <button
-            key={lang}
-            onClick={() => setLanguage(lang)}
-            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-              current === lang
-                ? 'bg-gray-700 text-white'
-                : 'text-gray-500 hover:text-gray-300'
-            }`}
-          >
-            {lang.toUpperCase()}
-          </button>
+          <option key={lang} value={lang}>
+            {LANGUAGE_LABELS[lang]}
+          </option>
         ))}
-      </div>
+      </select>
     </nav>
   );
 }

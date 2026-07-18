@@ -38,7 +38,7 @@ Both `apps/frontend` and `apps/backend` import from `@secret-hitler/shared`.
 | shadcn/ui | Accessible UI components (built on Tailwind) |
 | Zustand | Client-side state management |
 | React Router | Client-side routing |
-| i18next | Internationalisation (DE, EN to start) |
+| i18next | Internationalisation (DE, EN, TR) |
 | socket.io-client | WebSocket connection to backend |
 
 ### Backend (`apps/backend`)
