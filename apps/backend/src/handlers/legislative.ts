@@ -11,6 +11,7 @@ import { prisma } from "../lib/prisma.js";
 import { getSessionId } from "../session.js";
 import {
   drawCards,
+  peekTopCards,
   getExecutiveAction,
   getNextPresidentId,
   checkWinCondition,
@@ -186,7 +187,7 @@ export function registerLegislativeHandlers(io: Server, socket: Socket) {
       if (action) {
         if (action === "peek") {
           // Peek pauses the game: president views the top 3 cards, then confirms to advance
-          state.peekCards = state.drawPile.slice(0, 3);
+          state.peekCards = peekTopCards(state, 3);
           state.phase = "executive_action";
           await setGameState(state);
 

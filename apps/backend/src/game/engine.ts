@@ -29,13 +29,24 @@ export function buildDeck(): PolicyType[] {
   return shuffle(cards);
 }
 
-/** Draws `count` cards from the top of drawPile, reshuffling if necessary. Mutates state. */
-export function drawCards(state: RedisGameState, count: number): PolicyType[] {
+/** Reshuffles discardPile into drawPile if drawPile has fewer than `count` cards. Mutates state. */
+function ensureDrawPile(state: RedisGameState, count: number): void {
   if (state.drawPile.length < count) {
     state.drawPile = shuffle([...state.drawPile, ...state.discardPile]);
     state.discardPile = [];
   }
+}
+
+/** Draws `count` cards from the top of drawPile, reshuffling if necessary. Mutates state. */
+export function drawCards(state: RedisGameState, count: number): PolicyType[] {
+  ensureDrawPile(state, count);
   return state.drawPile.splice(0, count);
+}
+
+/** Returns the top `count` cards of drawPile without removing them, reshuffling first if necessary. Mutates state (reshuffle only, cards are not consumed). */
+export function peekTopCards(state: RedisGameState, count: number): PolicyType[] {
+  ensureDrawPile(state, count);
+  return state.drawPile.slice(0, count);
 }
 
 // ─── Roles ───────────────────────────────────────────────────────────────────
