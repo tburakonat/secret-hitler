@@ -12,6 +12,7 @@ async function bootstrap() {
     useSessionStore.getState().setSessionId(sessionId);
   } catch (e) {
     console.error('Session-Initialisierung fehlgeschlagen:', e);
+    useSessionStore.getState().setError('Verbindung zum Server fehlgeschlagen. Bitte Seite neu laden.');
   }
 
   ReactDOM.createRoot(document.getElementById('root')!).render(
