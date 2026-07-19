@@ -2,10 +2,13 @@ import "dotenv/config";
 import Fastify from "fastify";
 import fastifyCookie from "@fastify/cookie";
 import fastifyCors from "@fastify/cors";
+import fastifyRateLimit from "@fastify/rate-limit";
 import { Server as SocketIOServer } from "socket.io";
 import { v4 as uuidv4 } from "uuid";
 import { prisma } from "./lib/prisma.js";
 import { redis } from "./lib/redis.js";
+import { cookieOptions } from "./lib/auth.js";
+import { authRoutes } from "./routes/auth.js";
 import { registerLobbyHandlers } from "./handlers/lobby.js";
 import { registerNominationHandlers } from "./handlers/nomination.js";
 import { registerElectionHandlers } from "./handlers/election.js";
@@ -46,6 +49,12 @@ async function main() {
   await fastify.register(fastifyCookie, {
     secret: COOKIE_SECRET,
   });
+  // Opt-in only: routes enable it via their own `config.rateLimit` (see routes/auth.ts).
+  await fastify.register(fastifyRateLimit, {
+    global: false,
+    // statusCode ist Pflicht — ohne ihn behandelt Fastify die Antwort als 500er.
+    errorResponseBuilder: () => ({ statusCode: 429, error: "RATE_LIMITED" }),
+  });
 
   const io = new SocketIOServer(
     fastify.server,
@@ -67,17 +76,12 @@ async function main() {
     let sessionId = request.cookies.sessionId;
     if (!sessionId) {
       sessionId = uuidv4();
-      reply.setCookie("sessionId", sessionId, {
-        httpOnly: true,
-        // Cross-origin (CLIENT_ORIGIN set) requires SameSite=None + Secure, i.e. HTTPS.
-        // Same-origin works with Lax on plain HTTP; COOKIE_SECURE=true when behind a TLS proxy.
-        sameSite: CLIENT_ORIGIN ? "none" : "lax",
-        secure: CLIENT_ORIGIN ? true : process.env.COOKIE_SECURE === "true",
-        path: "/",
-      });
+      reply.setCookie("sessionId", sessionId, cookieOptions());
     }
     return { sessionId };
   });
+
+  await fastify.register(authRoutes, { prefix: "/api/auth" });
 
   fastify.get("/api/lobbies", async () => {
     const lobbies = await prisma.lobby.findMany({

@@ -19,6 +19,32 @@ model Lobby {
   games   Game[]
 }
 
+model User {
+  id              String    @id @default(uuid())
+  // Stored lowercased + trimmed (normalized in the Zod schema before any query).
+  email           String    @unique @db.VarChar(255)
+  passwordHash    String    @db.VarChar(255)
+  emailVerifiedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  sessions AuthSession[]
+  players  Player[]
+}
+
+model AuthSession {
+  id        String   @id @default(uuid())
+  // sha256 hex of the raw cookie token — the raw token never touches the DB.
+  tokenHash String   @unique @db.VarChar(64)
+  userId    String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
 model Player {
   id        String    @id @default(uuid())
   lobbyId   String
@@ -29,11 +55,11 @@ model Player {
   isAlive   Boolean   @default(true)
   seatIndex Int       @db.SmallInt
   joinedAt  DateTime  @default(now())
+  userId    String?
 
   lobby       Lobby        @relation(fields: [lobbyId], references: [id])
   gamePlayers GamePlayer[]
-
-  // Future login extension: add userId String? and a User relation
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
 }
 
 model Game {

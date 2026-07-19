@@ -5,13 +5,13 @@ import {
   GAME_CONSTANTS,
   type LobbyCreatePayload,
   type LobbyJoinPayload,
-  type LobbyReconnectPayload,
   type LobbyUpdatedPayload,
   type LobbyUpdateSettingsPayload,
   type GameStateSync,
 } from "@secret-hitler/shared";
 import { prisma } from "../lib/prisma.js";
 import { getSessionId } from "../session.js";
+import { getAuthUserId } from "../lib/auth.js";
 import { assignRoles, buildDeck } from "../game/engine.js";
 import { setGameState, getGameState, deleteGameState } from "../game/state.js";
 
@@ -31,10 +31,6 @@ const LobbyUpdateSettingsSchema = z.object({
 const LobbyJoinSchema = z.object({
   nickname: z.string().min(1).max(32),
   code: z.string().length(GAME_CONSTANTS.LOBBY_CODE_LENGTH).optional(),
-});
-
-const LobbyReconnectSchema = z.object({
-  sessionId: z.string().uuid(),
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -109,6 +105,7 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
     }
 
     const code = await generateUniqueCode();
+    const userId = await getAuthUserId(socket);
 
     const lobby = await prisma.lobby.create({
       data: {
@@ -122,6 +119,7 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
             nickname,
             isHost: true,
             seatIndex: 0,
+            userId,
           },
         },
       },
@@ -179,6 +177,7 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
       return emitError(socket, "LOBBY_FULL", "This lobby is full.");
     }
 
+    const userId = await getAuthUserId(socket);
     const player = await prisma.player.create({
       data: {
         lobbyId: lobby.id,
@@ -187,6 +186,7 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
         nickname,
         isHost: false,
         seatIndex: lobby.players.length,
+        userId,
       },
     });
 
@@ -201,12 +201,13 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
 
   // ── LOBBY_RECONNECT ─────────────────────────────────────────────────────────
 
-  socket.on(SOCKET_EVENTS.LOBBY_RECONNECT, async (raw: LobbyReconnectPayload) => {
-    const parsed = LobbyReconnectSchema.safeParse(raw);
-    if (!parsed.success) {
-      return emitError(socket, "INVALID_PAYLOAD", parsed.error.message);
+  socket.on(SOCKET_EVENTS.LOBBY_RECONNECT, async () => {
+    // Identity comes from the handshake cookie — never from the payload, which
+    // would let a client reconnect as any player whose sessionId they know.
+    const sessionId = getSessionId(socket);
+    if (!sessionId) {
+      return emitError(socket, "NO_SESSION", "Call GET /session first to obtain a sessionId cookie.");
     }
-    const { sessionId } = parsed.data;
 
     const player = await prisma.player.findFirst({
       where: { sessionId },

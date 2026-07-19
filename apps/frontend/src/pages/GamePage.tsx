@@ -75,7 +75,7 @@ export default function GamePage() {
   const sessionId = useSessionStore((s) => s.sessionId);
 
   useEffect(() => {
-    if (sessionId) connectAndReconnect(sessionId);
+    if (sessionId) connectAndReconnect();
   }, [sessionId]);
 
   const {

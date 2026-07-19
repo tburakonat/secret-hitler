@@ -91,13 +91,15 @@ docker compose up -d --build
 - Split deployments (frontend and backend on different origins, e.g. Vercel + Railway) are still possible: build the frontend with the `VITE_BACKEND_URL` build arg and set `CLIENT_ORIGIN` on the backend (enables CORS and switches cookies to `SameSite=None; Secure`, which requires HTTPS).
 
 The frontend communicates with the backend via:
-- REST (HTTP) under `/api` for session and lobby listing
+- REST (HTTP) under `/api` for session, auth (`/api/auth/*`), and lobby listing
 - WebSocket (Socket.io) under `/socket.io` for all real-time game events
 
-## Future login extension
+## User accounts (login)
 
-The schema is prepared for adding user accounts later. To add login:
-1. Create a `users` table (email, password hash, etc.)
-2. Add a nullable `user_id` column to `players` (FK → users.id)
-3. When `user_id` is set, identify by `user_id`. When null, fall back to `sessionId`.
-No existing logic needs to change.
+Accounts are optional — guest play works exactly as before. Login is email + password:
+
+- `User` and `AuthSession` tables in PostgreSQL; passwords hashed with argon2id.
+- REST endpoints under `/api/auth`: `register`, `login`, `logout`, `me` (rate-limited via `@fastify/rate-limit`).
+- Login state lives in its own HTTP-only `authToken` cookie (opaque token, sha256-hashed in the DB, 30-day TTL), independent of the `sessionId` game-identity cookie — logging in or out never affects a running game.
+- When a logged-in user creates or joins a lobby, `players.userId` is set (null for guests). Nothing else in the game logic reads auth state.
+- Not yet built (schema is prepared): email verification and password reset.

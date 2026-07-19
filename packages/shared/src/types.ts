@@ -72,9 +72,8 @@ export interface LobbyJoinPayload {
   code?: string;
 }
 
-export interface LobbyReconnectPayload {
-  sessionId: string;
-}
+/** Reconnect carries no data — the server derives the session from the handshake cookie. */
+export type LobbyReconnectPayload = Record<string, never>;
 
 export interface NominationChancellorPayload {
   chancellorId: string;
@@ -213,3 +212,22 @@ export interface ErrorPayload {
   code: string;
   message: string;
 }
+
+// ─── Auth (REST) ─────────────────────────────────────────────────────────────
+
+export interface AuthUser {
+  id: string;
+  email: string;
+}
+
+/** Request body for both POST /api/auth/register and POST /api/auth/login */
+export interface AuthCredentials {
+  email: string;
+  password: string;
+}
+
+export interface MeResponse {
+  user: AuthUser | null;
+}
+
+export type AuthErrorCode = 'INVALID_INPUT' | 'INVALID_CREDENTIALS' | 'EMAIL_TAKEN' | 'RATE_LIMITED';

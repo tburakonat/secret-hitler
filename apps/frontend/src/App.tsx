@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import LobbyPage from './pages/LobbyPage';
 import GamePage from './pages/GamePage';
+import LoginPage from './pages/LoginPage';
 import { Navbar } from './components/ui/Navbar';
 import { useSessionStore } from './stores/sessionStore';
 
@@ -18,6 +19,7 @@ export default function App() {
       )}
       <Routes>
         <Route path="/"      element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
         <Route path="/lobby" element={<LobbyPage />} />
         <Route path="/game"  element={<GamePage />} />
         <Route path="*"      element={<Navigate to="/" replace />} />

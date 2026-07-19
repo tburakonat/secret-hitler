@@ -56,7 +56,7 @@ export default function LobbyPage() {
   // Reconnect beim Mounten (Page-Reload)
   useEffect(() => {
     if (sessionId) {
-      connectAndReconnect(sessionId);
+      connectAndReconnect();
     }
   }, [sessionId]);
 

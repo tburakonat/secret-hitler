@@ -31,9 +31,9 @@ Join a lobby by code (private) or without a code (random public lobby).
 ```
 
 ### `lobby:reconnect` — C → S
-Sent immediately on (re)connect if the client has a sessionId cookie. Server finds the player, updates socketId, and sends current state.
+Sent immediately on (re)connect if the client has a sessionId cookie. The server derives the session from the handshake cookie (never from the payload — a client-supplied sessionId would allow impersonation), finds the player, updates socketId, and sends current state.
 ```typescript
-{ sessionId: string }
+{} // no payload
 ```
 
 ### `lobby:updated` — S → C broadcast

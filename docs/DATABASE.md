@@ -12,6 +12,30 @@ The split exists because game state is read/written on every socket event and mu
 ## PostgreSQL schema (Prisma)
 
 ```prisma
+model User {
+  id              String    @id @default(uuid())
+  email           String    @unique @db.VarChar(255)  // stored lowercased + trimmed
+  passwordHash    String    @db.VarChar(255)          // argon2id
+  emailVerifiedAt DateTime?                           // null for now; enables verification later
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  sessions AuthSession[]
+  players  Player[]
+}
+
+model AuthSession {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique @db.VarChar(64)  // sha256 hex of the raw authToken cookie value
+  userId    String
+  createdAt DateTime @default(now())
+  expiresAt DateTime                          // 30 days after login
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
 model Lobby {
   id         String   @id @default(uuid())
   code       String   @unique @db.VarChar(6)
@@ -34,11 +58,11 @@ model Player {
   isAlive     Boolean  @default(true)
   seatIndex   Int      @db.SmallInt
   joinedAt    DateTime @default(now())
+  userId      String?  // set when a logged-in user creates/joins a lobby; null for guests
 
   lobby       Lobby    @relation(fields: [lobbyId], references: [id])
   gamePlayers GamePlayer[]
-
-  // Future login extension: add userId String? and a User relation
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 }
 
 model Game {
@@ -128,12 +152,21 @@ await pipeline.exec()
 
 ## Session and reconnect flow
 
-Players have no accounts. Identity is managed via `sessionId`:
+Game identity is managed via `sessionId` — for guests and logged-in users alike:
 
 1. On first visit, the server generates a UUID `sessionId` and sets it as an HTTP-only cookie.
 2. The `sessionId` is stored in `players.sessionId`.
-3. On reconnect, the client sends `lobby:reconnect` with the `sessionId` from the cookie.
+3. On reconnect, the client sends `lobby:reconnect` (no payload); the server reads the `sessionId` from the handshake cookie.
 4. The server finds the player by `sessionId`, updates `players.socketId` to the new socket ID, and sends `game:state_sync` to restore the client's view.
 
 `socketId` = current connection (changes on every reconnect)
-`sessionId` = stable identity (persists in cookie)
+`sessionId` = stable game identity (persists in cookie)
+
+## Auth sessions (login)
+
+Accounts are optional — guests play exactly as before. Login state lives in a **second, independent cookie** so that logging in or out never affects a running game:
+
+- `POST /api/auth/register` and `/login` mint a random 256-bit token, set it as the HTTP-only `authToken` cookie (30-day TTL), and store its sha256 hash in `AuthSession.tokenHash`.
+- `GET /api/auth/me` / socket handlers resolve `authToken` → `AuthSession` → `userId`; missing or expired sessions resolve to `null` (guest).
+- `POST /api/auth/logout` deletes the `AuthSession` row (server-side revocation) and clears the cookie.
+- When a logged-in user creates or joins a lobby, `players.userId` is set; that is the only place auth touches game logic.

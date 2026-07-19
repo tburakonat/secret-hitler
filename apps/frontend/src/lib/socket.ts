@@ -4,7 +4,6 @@ import {
   SOCKET_EVENTS,
   type LobbyCreatePayload,
   type LobbyJoinPayload,
-  type LobbyReconnectPayload,
   type LobbyUpdateSettingsPayload,
   type NominationChancellorPayload,
   type ElectionVotePayload,
@@ -31,15 +30,16 @@ export const socket: Socket<any, any> = BACKEND_URL
 
 export const emitLobbyCreate       = (p: LobbyCreatePayload): void                      => { socket.emit(SOCKET_EVENTS.LOBBY_CREATE, p); };
 export const emitLobbyJoin         = (p: LobbyJoinPayload): void                        => { socket.emit(SOCKET_EVENTS.LOBBY_JOIN, p); };
-export const emitLobbyReconnect    = (p: LobbyReconnectPayload): void                   => { socket.emit(SOCKET_EVENTS.LOBBY_RECONNECT, p); };
+// Payload-los: Der Server leitet die Identität aus dem Handshake-Cookie ab.
+export const emitLobbyReconnect    = (): void                                           => { socket.emit(SOCKET_EVENTS.LOBBY_RECONNECT, {}); };
 
 /** Verbindet den Socket falls nötig und sendet dann den Reconnect. */
-export function connectAndReconnect(sessionId: string) {
+export function connectAndReconnect() {
   if (socket.connected) {
-    emitLobbyReconnect({ sessionId });
+    emitLobbyReconnect();
   } else {
     socket.connect();
-    socket.once('connect', () => emitLobbyReconnect({ sessionId }));
+    socket.once('connect', () => emitLobbyReconnect());
   }
 }
 export const emitLobbyStart           = (): void                                            => { socket.emit(SOCKET_EVENTS.LOBBY_START, {}); };
