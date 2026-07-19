@@ -15,6 +15,7 @@ The split exists because game state is read/written on every socket event and mu
 model User {
   id              String    @id @default(uuid())
   email           String    @unique @db.VarChar(255)  // stored lowercased + trimmed
+  nickname        String    @unique @db.VarChar(32)   // chosen at registration, shown in game
   passwordHash    String    @db.VarChar(255)          // argon2id
   emailVerifiedAt DateTime?                           // null for now; enables verification later
   createdAt       DateTime  @default(now())
@@ -51,18 +52,17 @@ model Lobby {
 model Player {
   id          String   @id @default(uuid())
   lobbyId     String
-  sessionId   String   @db.VarChar(64)
   socketId    String?  @db.VarChar(64)
-  nickname    String   @db.VarChar(32)
+  nickname    String   @db.VarChar(32)  // denormalized copy of User.nickname
   isHost      Boolean  @default(false)
   isAlive     Boolean  @default(true)
   seatIndex   Int      @db.SmallInt
   joinedAt    DateTime @default(now())
-  userId      String?  // set when a logged-in user creates/joins a lobby; null for guests
+  userId      String   @unique          // one active lobby per user, DB-enforced
 
   lobby       Lobby    @relation(fields: [lobbyId], references: [id])
   gamePlayers GamePlayer[]
-  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Game {
@@ -150,23 +150,22 @@ await pipeline.exec()
 
 **Reading state before every action:** Always read the full `RedisGameState` at the start of each socket event handler, validate the action against it, update it, and write it back atomically.
 
-## Session and reconnect flow
+## Identity, sessions, and reconnect flow
 
-Game identity is managed via `sessionId` — for guests and logged-in users alike:
-
-1. On first visit, the server generates a UUID `sessionId` and sets it as an HTTP-only cookie.
-2. The `sessionId` is stored in `players.sessionId`.
-3. On reconnect, the client sends `lobby:reconnect` (no payload); the server reads the `sessionId` from the handshake cookie.
-4. The server finds the player by `sessionId`, updates `players.socketId` to the new socket ID, and sends `game:state_sync` to restore the client's view.
-
-`socketId` = current connection (changes on every reconnect)
-`sessionId` = stable game identity (persists in cookie)
-
-## Auth sessions (login)
-
-Accounts are optional — guests play exactly as before. Login state lives in a **second, independent cookie** so that logging in or out never affects a running game:
+Playing requires an account. The `authToken` cookie is the single source of identity:
 
 - `POST /api/auth/register` and `/login` mint a random 256-bit token, set it as the HTTP-only `authToken` cookie (30-day TTL), and store its sha256 hash in `AuthSession.tokenHash`.
-- `GET /api/auth/me` / socket handlers resolve `authToken` → `AuthSession` → `userId`; missing or expired sessions resolve to `null` (guest).
-- `POST /api/auth/logout` deletes the `AuthSession` row (server-side revocation) and clears the cookie.
-- When a logged-in user creates or joins a lobby, `players.userId` is set; that is the only place auth touches game logic.
+- Socket.io resolves the cookie **once at the handshake** (`io.use` middleware): `authToken` → `AuthSession` → `userId`, stored on `socket.data.userId`. Connections without a valid session are rejected with `connect_error("UNAUTHORIZED")`. Every socket also joins the room `user:<userId>`.
+- Handlers look up the player via `prisma.player.findUnique({ where: { userId } })` — `Player.userId` is unique, so a user is in at most one lobby.
+- On reconnect (page reload), the client sends `lobby:reconnect` (no payload); the server finds the player by `userId`, updates `players.socketId`, and sends `game:state_sync` to restore the client's view.
+
+`socketId` = current connection (changes on every reconnect)
+`userId` = stable identity (via `authToken` cookie, survives reloads and devices)
+
+### Logout
+
+`POST /api/auth/logout` orchestrates the departure server-side:
+
+1. Force-disconnects all of the user's sockets (`io.in("user:<userId>").disconnectSockets(true)`) — all tabs and devices.
+2. If the user is in a lobby whose game is running, the game is **aborted for everyone** (a round cannot continue with a missing player); then the user leaves the lobby (host reassignment, empty-lobby cleanup).
+3. Deletes the `AuthSession` row (server-side revocation) and clears the cookie.

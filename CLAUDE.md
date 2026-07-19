@@ -25,7 +25,7 @@ A real-time multiplayer web implementation of the board game **Secret Hitler** (
 
 ## Key constraints
 
-- Players have no accounts. Identity is managed via a `sessionId` (UUID stored as a cookie). This must survive page reloads and reconnects.
+- Playing requires an account (email + password + unique nickname). Identity is the `authToken` cookie (httpOnly, opaque token → `AuthSession` → `userId`); socket.io resolves it once at the handshake (`socket.data.userId`) and rejects unauthenticated connections. This must survive page reloads and reconnects. A user can be in at most one lobby (DB-enforced unique `Player.userId`).
 - Minimum 5 players, maximum 10 players per game.
 - The draw pile has 17 cards: 11 fascist, 6 liberal. When fewer than 3 cards remain, reshuffle the discard pile into a new draw pile (atomically in Redis).
 - The "last government" ineligibility rule: the previous President and Chancellor cannot be nominated as Chancellor in the next round.

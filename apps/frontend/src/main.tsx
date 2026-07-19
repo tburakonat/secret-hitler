@@ -3,20 +3,14 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
 import './lib/i18n';
-import { fetchMe, initSession } from './lib/api';
-import { useSessionStore } from './stores/sessionStore';
+import { fetchMe } from './lib/api';
 import { useAuthStore } from './stores/authStore';
 
 async function bootstrap() {
-  try {
-    // fetchMe wirft nie — Gäste (oder Auth-Fehler) ergeben schlicht user = null.
-    const [sessionId, user] = await Promise.all([initSession(), fetchMe()]);
-    useSessionStore.getState().setSessionId(sessionId);
-    useAuthStore.getState().setUser(user);
-  } catch (e) {
-    console.error('Session-Initialisierung fehlgeschlagen:', e);
-    useSessionStore.getState().setError('Verbindung zum Server fehlgeschlagen. Bitte Seite neu laden.');
-  }
+  // Vor dem ersten Render aufgelöst, damit der Auth-Guard nie flackert.
+  // fetchMe wirft nie — nicht eingeloggt (oder Fehler) ergibt user = null.
+  const user = await fetchMe();
+  useAuthStore.getState().setUser(user);
 
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>

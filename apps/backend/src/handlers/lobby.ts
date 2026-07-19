@@ -10,15 +10,14 @@ import {
   type GameStateSync,
 } from "@secret-hitler/shared";
 import { prisma } from "../lib/prisma.js";
-import { getSessionId } from "../session.js";
-import { getAuthUserId } from "../lib/auth.js";
+import { getUserId, requirePlayer } from "../lib/socketAuth.js";
+import { abortActiveGame, buildLobbyUpdatedPayload, leaveLobby } from "../game/lifecycle.js";
 import { assignRoles, buildDeck } from "../game/engine.js";
-import { setGameState, getGameState, deleteGameState } from "../game/state.js";
+import { setGameState, getGameState } from "../game/state.js";
 
 // ─── Zod schemas ──────────────────────────────────────────────────────────────
 
 const LobbyCreateSchema = z.object({
-  nickname: z.string().min(1).max(32),
   isPublic: z.boolean(),
   maxPlayers: z.number().int().min(GAME_CONSTANTS.MIN_PLAYERS).max(GAME_CONSTANTS.MAX_PLAYERS),
 });
@@ -29,7 +28,6 @@ const LobbyUpdateSettingsSchema = z.object({
 });
 
 const LobbyJoinSchema = z.object({
-  nickname: z.string().min(1).max(32),
   code: z.string().length(GAME_CONSTANTS.LOBBY_CODE_LENGTH).optional(),
 });
 
@@ -52,35 +50,6 @@ async function generateUniqueCode(): Promise<string> {
   throw new Error("Failed to generate unique lobby code");
 }
 
-function buildLobbyUpdatedPayload(
-  lobbyId: string,
-  code: string,
-  players: Array<{
-    id: string;
-    nickname: string;
-    isAlive: boolean;
-    seatIndex: number;
-    isHost: boolean;
-  }>,
-  maxPlayers: number,
-  isPublic: boolean,
-): LobbyUpdatedPayload {
-  return {
-    lobbyId,
-    code,
-    players: players.map((p) => ({
-      id: p.id,
-      nickname: p.nickname,
-      isAlive: p.isAlive,
-      seatIndex: p.seatIndex,
-      isHost: p.isHost,
-    })),
-    hostId: players.find((p) => p.isHost)?.id ?? "",
-    maxPlayers,
-    isPublic,
-  };
-}
-
 // ─── Handler registration ─────────────────────────────────────────────────────
 
 export function registerLobbyHandlers(io: Server, socket: Socket) {
@@ -91,21 +60,22 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
     if (!parsed.success) {
       return emitError(socket, "INVALID_PAYLOAD", parsed.error.message);
     }
-    const { nickname, isPublic, maxPlayers } = parsed.data;
+    const { isPublic, maxPlayers } = parsed.data;
 
-    const sessionId = getSessionId(socket);
-    if (!sessionId) {
-      return emitError(socket, "NO_SESSION", "Call GET /session first to obtain a sessionId cookie.");
-    }
+    const userId = getUserId(socket);
 
-    // If this session is already in a lobby, reject
-    const existing = await prisma.player.findFirst({ where: { sessionId } });
+    // If this user is already in a lobby, reject (DB unique on userId as backstop)
+    const existing = await requirePlayer(socket);
     if (existing) {
       return emitError(socket, "ALREADY_IN_LOBBY", "You are already in a lobby.");
     }
 
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return emitError(socket, "USER_NOT_FOUND", "Your account no longer exists.");
+    }
+
     const code = await generateUniqueCode();
-    const userId = await getAuthUserId(socket);
 
     const lobby = await prisma.lobby.create({
       data: {
@@ -114,9 +84,8 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
         maxPlayers,
         players: {
           create: {
-            sessionId,
             socketId: socket.id,
-            nickname,
+            nickname: user.nickname,
             isHost: true,
             seatIndex: 0,
             userId,
@@ -140,16 +109,18 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
     if (!parsed.success) {
       return emitError(socket, "INVALID_PAYLOAD", parsed.error.message);
     }
-    const { nickname, code } = parsed.data;
+    const { code } = parsed.data;
 
-    const sessionId = getSessionId(socket);
-    if (!sessionId) {
-      return emitError(socket, "NO_SESSION", "Call GET /session first to obtain a sessionId cookie.");
-    }
+    const userId = getUserId(socket);
 
-    const alreadyIn = await prisma.player.findFirst({ where: { sessionId } });
+    const alreadyIn = await requirePlayer(socket);
     if (alreadyIn) {
       return emitError(socket, "ALREADY_IN_LOBBY", "You are already in a lobby.");
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return emitError(socket, "USER_NOT_FOUND", "Your account no longer exists.");
     }
 
     let lobby;
@@ -177,13 +148,11 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
       return emitError(socket, "LOBBY_FULL", "This lobby is full.");
     }
 
-    const userId = await getAuthUserId(socket);
     const player = await prisma.player.create({
       data: {
         lobbyId: lobby.id,
-        sessionId,
         socketId: socket.id,
-        nickname,
+        nickname: user.nickname,
         isHost: false,
         seatIndex: lobby.players.length,
         userId,
@@ -202,31 +171,21 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
   // ── LOBBY_RECONNECT ─────────────────────────────────────────────────────────
 
   socket.on(SOCKET_EVENTS.LOBBY_RECONNECT, async () => {
-    // Identity comes from the handshake cookie — never from the payload, which
-    // would let a client reconnect as any player whose sessionId they know.
-    const sessionId = getSessionId(socket);
-    if (!sessionId) {
-      return emitError(socket, "NO_SESSION", "Call GET /session first to obtain a sessionId cookie.");
-    }
-
-    const player = await prisma.player.findFirst({
-      where: { sessionId },
-      include: {
-        lobby: {
-          include: {
-            players: true,
-            games: {
-              orderBy: { startedAt: "desc" },
-              take: 1,
-              include: { gamePlayers: { include: { player: true } } },
-            },
+    const player = await requirePlayer(socket, {
+      lobby: {
+        include: {
+          players: true,
+          games: {
+            orderBy: { startedAt: "desc" },
+            take: 1,
+            include: { gamePlayers: { include: { player: true } } },
           },
         },
       },
     });
 
     if (!player) {
-      return emitError(socket, "SESSION_NOT_FOUND", "No player found for this session.");
+      return emitError(socket, "NOT_IN_LOBBY", "You are not in a lobby.");
     }
 
     await prisma.player.update({
@@ -312,18 +271,10 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
   // ── LOBBY_START ─────────────────────────────────────────────────────────────
 
   socket.on(SOCKET_EVENTS.LOBBY_START, async () => {
-    const sessionId = getSessionId(socket);
-    if (!sessionId) {
-      return emitError(socket, "NO_SESSION", "Call GET /session first to obtain a sessionId cookie.");
-    }
-
-    const player = await prisma.player.findFirst({
-      where: { sessionId },
-      include: { lobby: { include: { players: true } } },
-    });
+    const player = await requirePlayer(socket, { lobby: { include: { players: true } } });
 
     if (!player) {
-      return emitError(socket, "SESSION_NOT_FOUND", "No player found for this session.");
+      return emitError(socket, "NOT_IN_LOBBY", "You are not in a lobby.");
     }
     if (!player.isHost) {
       return emitError(socket, "NOT_HOST", "Only the host can start the game.");
@@ -451,18 +402,10 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
   // ── GAME_ABORT ──────────────────────────────────────────────────────────────
 
   socket.on(SOCKET_EVENTS.GAME_ABORT, async () => {
-    const sessionId = getSessionId(socket);
-    if (!sessionId) {
-      return emitError(socket, "NO_SESSION", "Call GET /session first to obtain a sessionId cookie.");
-    }
-
-    const player = await prisma.player.findFirst({
-      where: { sessionId },
-      include: { lobby: { include: { players: true } } },
-    });
+    const player = await requirePlayer(socket, { lobby: true });
 
     if (!player) {
-      return emitError(socket, "SESSION_NOT_FOUND", "No player found for this session.");
+      return emitError(socket, "NOT_IN_LOBBY", "You are not in a lobby.");
     }
     if (!player.isHost) {
       return emitError(socket, "NOT_HOST", "Only the host can abort the game.");
@@ -471,41 +414,13 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
       return emitError(socket, "GAME_NOT_ACTIVE", "No game is currently in progress.");
     }
 
-    const activeGame = await prisma.game.findFirst({
-      where: { lobbyId: player.lobbyId, endedAt: null },
-      orderBy: { startedAt: "desc" },
-    });
-
-    if (activeGame) await deleteGameState(activeGame.id);
-
-    // No onDelete: Cascade in schema — delete in dependency order: Round → GamePlayer → Game
-    await prisma.$transaction([
-      ...(activeGame ? [
-        prisma.round.deleteMany({ where: { gameId: activeGame.id } }),
-        prisma.gamePlayer.deleteMany({ where: { gameId: activeGame.id } }),
-        prisma.game.delete({ where: { id: activeGame.id } }),
-      ] : []),
-      prisma.player.updateMany({ where: { lobbyId: player.lobbyId }, data: { isAlive: true } }),
-      prisma.lobby.update({ where: { id: player.lobbyId }, data: { status: "WAITING" } }),
-    ]);
-
-    const freshPlayers = await prisma.player.findMany({ where: { lobbyId: player.lobbyId } });
-    const payload = buildLobbyUpdatedPayload(player.lobbyId, player.lobby.code, freshPlayers, player.lobby.maxPlayers, player.lobby.isPublic);
-    io.to(player.lobbyId).emit(SOCKET_EVENTS.GAME_ABORTED, payload);
+    await abortActiveGame(io, player.lobbyId);
   });
 
   // ── LOBBY_RETURN ────────────────────────────────────────────────────────────
 
   socket.on(SOCKET_EVENTS.LOBBY_RETURN, async () => {
-    const sessionId = getSessionId(socket);
-    if (!sessionId) {
-      return emitError(socket, "NO_SESSION", "Call GET /session first to obtain a sessionId cookie.");
-    }
-
-    const player = await prisma.player.findFirst({
-      where: { sessionId },
-      include: { lobby: { include: { players: true } } },
-    });
+    const player = await requirePlayer(socket, { lobby: { include: { players: true } } });
 
     if (!player?.lobby) {
       return emitError(socket, "NOT_IN_LOBBY", "You are not in a lobby.");
@@ -530,15 +445,7 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
   // ── LOBBY_LEAVE ─────────────────────────────────────────────────────────────
 
   socket.on(SOCKET_EVENTS.LOBBY_LEAVE, async () => {
-    const sessionId = getSessionId(socket);
-    if (!sessionId) {
-      return emitError(socket, "NO_SESSION", "Call GET /session first to obtain a sessionId cookie.");
-    }
-
-    const player = await prisma.player.findFirst({
-      where: { sessionId },
-      include: { lobby: { include: { players: true } } },
-    });
+    const player = await requirePlayer(socket, { lobby: true });
 
     if (!player?.lobby) {
       return emitError(socket, "NOT_IN_LOBBY", "You are not in a lobby.");
@@ -547,34 +454,9 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
       return emitError(socket, "GAME_IN_PROGRESS", "Cannot leave while a game is in progress.");
     }
 
-    const { lobby } = player;
-    const remainingPlayers = lobby.players.filter((p) => p.id !== player.id);
-
     // Leave the room first so the departing player doesn't receive the subsequent broadcast.
-    socket.leave(lobby.id);
-
-    if (remainingPlayers.length === 0) {
-      await prisma.$transaction([
-        prisma.player.delete({ where: { id: player.id } }),
-        prisma.lobby.delete({ where: { id: lobby.id } }),
-      ]);
-    } else {
-      const ops = [
-        prisma.player.delete({ where: { id: player.id } }),
-        ...(player.isHost
-          ? [prisma.player.update({
-              where: { id: remainingPlayers.sort((a, b) => a.seatIndex - b.seatIndex)[0].id },
-              data: { isHost: true },
-            })]
-          : []),
-      ];
-
-      await prisma.$transaction(ops);
-
-      const freshPlayers = await prisma.player.findMany({ where: { lobbyId: lobby.id } });
-      const payload = buildLobbyUpdatedPayload(lobby.id, lobby.code, freshPlayers, lobby.maxPlayers, lobby.isPublic);
-      io.to(lobby.id).emit(SOCKET_EVENTS.LOBBY_UPDATED, payload);
-    }
+    socket.leave(player.lobbyId);
+    await leaveLobby(io, player.id);
   });
 
   // ── LOBBY_UPDATE_SETTINGS ───────────────────────────────────────────────────
@@ -586,18 +468,10 @@ export function registerLobbyHandlers(io: Server, socket: Socket) {
     }
     const { isPublic, maxPlayers } = parsed.data;
 
-    const sessionId = getSessionId(socket);
-    if (!sessionId) {
-      return emitError(socket, "NO_SESSION", "Call GET /session first to obtain a sessionId cookie.");
-    }
-
-    const player = await prisma.player.findFirst({
-      where: { sessionId },
-      include: { lobby: { include: { players: true } } },
-    });
+    const player = await requirePlayer(socket, { lobby: { include: { players: true } } });
 
     if (!player) {
-      return emitError(socket, "SESSION_NOT_FOUND", "No player found for this session.");
+      return emitError(socket, "NOT_IN_LOBBY", "You are not in a lobby.");
     }
     if (!player.isHost) {
       return emitError(socket, "NOT_HOST", "Only the host can change lobby settings.");

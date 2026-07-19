@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { GAME_CONSTANTS } from "@secret-hitler/shared";
 import { Button } from "../components/ui/Button";
@@ -9,7 +9,6 @@ import { connectAndReconnect, emitLobbyLeave, emitLobbyStart, emitLobbyUpdateSet
 import { useSocketEvents } from "../hooks/useSocketEvents";
 import { useLobbyStore } from "../stores/lobbyStore";
 import { useGameStore } from "../stores/gameStore";
-import { useSessionStore } from "../stores/sessionStore";
 import type {
   LobbyUpdatedPayload,
   GameRoleAssignedPayload,
@@ -19,13 +18,7 @@ import type {
 export default function LobbyPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const location = useLocation();
 
-  // Nickname wird von der HomePage via navigate state übergeben
-  const incomingNickname = (location.state as { nickname?: string } | null)
-    ?.nickname;
-
-  const sessionId = useSessionStore((s) => s.sessionId);
   const { players, code, hostId, myPlayerId, maxPlayers, isPublic, setLobby } = useLobbyStore();
   const setMyPlayerId = useLobbyStore((s) => s.setMyPlayerId);
   const { applyStateSync, setRole, reset: resetGame } = useGameStore();
@@ -55,10 +48,8 @@ export default function LobbyPage() {
 
   // Reconnect beim Mounten (Page-Reload)
   useEffect(() => {
-    if (sessionId) {
-      connectAndReconnect();
-    }
-  }, [sessionId]);
+    connectAndReconnect();
+  }, []);
 
   useSocketEvents({
     "lobby:updated": (payload: LobbyUpdatedPayload) => {
@@ -73,9 +64,6 @@ export default function LobbyPage() {
 
       if (payload.selfId) {
         setMyPlayerId(payload.selfId);
-      } else if (!useLobbyStore.getState().myPlayerId && incomingNickname) {
-        const me = payload.players.find((p) => p.nickname === incomingNickname);
-        if (me) setMyPlayerId(me.id);
       }
     },
     "game:role_assigned": (payload: GameRoleAssignedPayload) => {

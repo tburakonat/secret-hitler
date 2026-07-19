@@ -8,7 +8,6 @@ import { Card } from '../components/ui/Card';
 import { socket, emitLobbyCreate, emitLobbyJoin } from '../lib/socket';
 import { useSocketEvents } from '../hooks/useSocketEvents';
 import { useLobbyStore } from '../stores/lobbyStore';
-import { useSessionStore } from '../stores/sessionStore';
 import type { LobbyUpdatedPayload, ErrorPayload } from '@secret-hitler/shared';
 
 type Tab = 'create' | 'join';
@@ -17,11 +16,9 @@ export default function HomePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const sessionId = useSessionStore((s) => s.sessionId);
   const { setLobby } = useLobbyStore();
 
   const [tab, setTab] = useState<Tab>('create');
-  const [nickname, setNickname] = useState('');
   const [isPublic, setIsPublic] = useState(true);
   const [maxPlayers, setMaxPlayers] = useState(6);
   const [code, setCode] = useState('');
@@ -33,11 +30,8 @@ export default function HomePage() {
       setLobby({ lobbyId: payload.lobbyId, code: payload.code, players: payload.players, hostId: payload.hostId });
       if (payload.selfId) useLobbyStore.getState().setMyPlayerId(payload.selfId);
 
-      // Eigene Player-ID anhand des sessionId herausfinden ist hier nicht möglich,
-      // daher setzen wir myPlayerId in der LobbyPage nach dem Reconnect.
-      // Hier reicht es, den Store zu füllen und zu navigieren.
       setLoading(false);
-      navigate('/lobby', { state: { nickname: nickname.trim() } });
+      navigate('/lobby');
     },
     'error': (payload: ErrorPayload) => {
       setError(payload.message);
@@ -46,14 +40,6 @@ export default function HomePage() {
   });
 
   function connectAndEmit(action: () => void) {
-    if (!sessionId) {
-      setError('Keine Session. Bitte Seite neu laden.');
-      return;
-    }
-    if (!nickname.trim()) {
-      setError('Bitte einen Nickname eingeben.');
-      return;
-    }
     setError(null);
     setLoading(true);
 
@@ -66,15 +52,11 @@ export default function HomePage() {
   }
 
   function handleCreate() {
-    connectAndEmit(() =>
-      emitLobbyCreate({ nickname: nickname.trim(), isPublic, maxPlayers }),
-    );
+    connectAndEmit(() => emitLobbyCreate({ isPublic, maxPlayers }));
   }
 
   function handleJoin() {
-    connectAndEmit(() =>
-      emitLobbyJoin({ nickname: nickname.trim(), code: code.trim() || undefined }),
-    );
+    connectAndEmit(() => emitLobbyJoin({ code: code.trim() || undefined }));
   }
 
   return (
@@ -107,15 +89,6 @@ export default function HomePage() {
 
         <Card>
           <div className="space-y-4">
-            <Input
-              id="nickname"
-              label={t('home.nickname')}
-              placeholder={t('home.nicknamePlaceholder')}
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              maxLength={32}
-            />
-
             {tab === 'create' && (
               <>
                 {/* isPublic Toggle */}

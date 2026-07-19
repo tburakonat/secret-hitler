@@ -38,20 +38,20 @@ Die Anwendung läuft als Docker-Compose-Stack mit vier Services. Nach außen ist
 
 | Pfad | Ziel | Zweck |
 |------|------|-------|
-| `/api/` | `backend:3000` | HTTP-Routen (`/api/session`, `/api/lobbies`) |
+| `/api/` | `backend:3000` | HTTP-Routen (`/api/auth/*`, `/api/lobbies`) |
 | `/socket.io/` | `backend:3000` | WebSocket/Polling für alle Echtzeit-Events (mit Upgrade-Headern und 24h-Timeout) |
 | alles andere | statische Dateien | SPA mit Fallback auf `index.html` |
 
 Daraus folgt:
 - **Das Frontend-Image ist umgebungsunabhängig** — keine Backend-URL wird beim Build eingebacken. Einmal bauen, überall deployen.
-- **Kein CORS nötig**, Session-Cookie ist `SameSite=Lax; HttpOnly` — funktioniert auch ohne HTTPS.
+- **Kein CORS nötig**, Auth-Cookie ist `SameSite=Lax; HttpOnly` — funktioniert auch ohne HTTPS.
 - Das Backend hat **kein Host-Port-Mapping**, `GET /health` ist nur intern erreichbar (Docker-Healthcheck).
 
 **Datenhaltung:**
 - **PostgreSQL** (Volume `postgres_data`): persistente Daten — Lobbies, Spieler, abgeschlossene Spiele. Schema via Prisma-Migrationen.
 - **Redis** (Volume `redis_data`): aktiver Spielzustand (schnell, TTL 24h). Dank Volume und `--save 60 1` überlebt er Container-Neustarts.
 
-**Identität:** Spieler haben keine Accounts. Beim ersten Aufruf setzt `GET /api/session` ein `sessionId`-Cookie (UUID, HttpOnly), das Reloads und Reconnects übersteht.
+**Identität:** Spielen erfordert einen Account (E-Mail + Passwort + Nickname). Der Login (`POST /api/auth/login` bzw. `/register`) setzt ein `authToken`-Cookie (HttpOnly, 30 Tage), das Reloads und Reconnects übersteht. Socket-Verbindungen ohne gültiges Cookie werden beim Handshake abgelehnt.
 
 ## Produktiv-Deployment
 
@@ -71,7 +71,7 @@ Die App ist danach unter `http://<host>:8080` erreichbar. Fehlt eines der Pflich
 | Variable | Pflicht | Default | Bedeutung |
 |----------|---------|---------|-----------|
 | `POSTGRES_PASSWORD` | ✅ | – | DB-Passwort. Greift nur bei der **Erstinitialisierung** des Volumes (späteres Ändern: `docker compose down -v` oder `ALTER USER` im Container) |
-| `COOKIE_SECRET` | ✅ | – | Signiert das Session-Cookie. Generieren: `openssl rand -hex 32` |
+| `COOKIE_SECRET` | ✅ | – | Secret für `@fastify/cookie`. Generieren: `openssl rand -hex 32` |
 | `APP_PORT` | – | `8080` | Der einzige exponierte Port des Stacks |
 | `COOKIE_SECURE` | – | `false` | Auf `true` setzen, wenn ein HTTPS-Proxy davor sitzt |
 | `POSTGRES_USER` / `POSTGRES_DB` | – | `postgres` / `secret_hitler` | Nur ändern, wenn nötig |
@@ -98,7 +98,7 @@ git pull
 docker compose up -d --build
 ```
 
-Das Backend führt beim Start automatisch `prisma migrate deploy` aus — Datenbank-Migrationen laufen also ohne manuellen Schritt. Die Volumes bleiben erhalten; laufende Spiele in Redis überleben den Neustart (Clients reconnecten über das Session-Cookie).
+Das Backend führt beim Start automatisch `prisma migrate deploy` aus — Datenbank-Migrationen laufen also ohne manuellen Schritt. Die Volumes bleiben erhalten; laufende Spiele in Redis überleben den Neustart (Clients reconnecten über das Auth-Cookie).
 
 ### Betrieb & Diagnose
 

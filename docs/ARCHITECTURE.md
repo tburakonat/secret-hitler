@@ -91,15 +91,17 @@ docker compose up -d --build
 - Split deployments (frontend and backend on different origins, e.g. Vercel + Railway) are still possible: build the frontend with the `VITE_BACKEND_URL` build arg and set `CLIENT_ORIGIN` on the backend (enables CORS and switches cookies to `SameSite=None; Secure`, which requires HTTPS).
 
 The frontend communicates with the backend via:
-- REST (HTTP) under `/api` for session, auth (`/api/auth/*`), and lobby listing
+- REST (HTTP) under `/api` for auth (`/api/auth/*`) and lobby listing
 - WebSocket (Socket.io) under `/socket.io` for all real-time game events
 
-## User accounts (login)
+## User accounts (mandatory)
 
-Accounts are optional — guest play works exactly as before. Login is email + password:
+Playing requires an account — there is no guest mode. Login is email + password, plus a unique account nickname chosen at registration (used everywhere in-game):
 
 - `User` and `AuthSession` tables in PostgreSQL; passwords hashed with argon2id.
 - REST endpoints under `/api/auth`: `register`, `login`, `logout`, `me` (rate-limited via `@fastify/rate-limit`).
-- Login state lives in its own HTTP-only `authToken` cookie (opaque token, sha256-hashed in the DB, 30-day TTL), independent of the `sessionId` game-identity cookie — logging in or out never affects a running game.
-- When a logged-in user creates or joins a lobby, `players.userId` is set (null for guests). Nothing else in the game logic reads auth state.
+- Identity is the HTTP-only `authToken` cookie (opaque token, sha256-hashed in the DB, 30-day TTL). Socket.io validates it once at the handshake (`io.use`) and stores `socket.data.userId`; unauthenticated connections are rejected.
+- `Player.userId` is required and unique — a user is in at most one lobby, and reconnects/multi-device seat takeover are keyed by `userId`.
+- Logout is orchestrated server-side: leaves the lobby (host reassignment); if a game is running it is aborted for everyone; all of the user's sockets are force-disconnected.
+- Frontend: all routes except `/login` are guarded; the Navbar shows the nickname and asks for confirmation before logout while in a lobby or running game.
 - Not yet built (schema is prepared): email verification and password reset.

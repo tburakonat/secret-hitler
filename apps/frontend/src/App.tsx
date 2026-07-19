@@ -4,24 +4,25 @@ import LobbyPage from './pages/LobbyPage';
 import GamePage from './pages/GamePage';
 import LoginPage from './pages/LoginPage';
 import { Navbar } from './components/ui/Navbar';
-import { useSessionStore } from './stores/sessionStore';
+import { useAuthStore } from './stores/authStore';
+
+// Kein Lade-/Flacker-Zustand nötig: main.tsx awaited fetchMe() vor dem Render,
+// user ist beim ersten Render also bereits aufgelöst.
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const user = useAuthStore((s) => s.user);
+  if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
 
 export default function App() {
-  const lastError = useSessionStore((s) => s.lastError);
-
   return (
     <BrowserRouter>
       <Navbar />
-      {lastError && (
-        <div className="bg-red-900/60 px-4 py-2 text-center text-sm text-red-200">
-          {lastError}
-        </div>
-      )}
       <Routes>
-        <Route path="/"      element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/lobby" element={<LobbyPage />} />
-        <Route path="/game"  element={<GamePage />} />
+        <Route path="/"      element={<RequireAuth><HomePage /></RequireAuth>} />
+        <Route path="/lobby" element={<RequireAuth><LobbyPage /></RequireAuth>} />
+        <Route path="/game"  element={<RequireAuth><GamePage /></RequireAuth>} />
         <Route path="*"      element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

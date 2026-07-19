@@ -8,7 +8,7 @@ import {
   type GameStateSync,
 } from "@secret-hitler/shared";
 import { prisma } from "../lib/prisma.js";
-import { getSessionId } from "../session.js";
+import { requirePlayer } from "../lib/socketAuth.js";
 import {
   drawCards,
   peekTopCards,
@@ -51,11 +51,8 @@ export function registerLegislativeHandlers(io: Server, socket: Socket) {
     if (!parsed.success) return emitError(socket, "INVALID_PAYLOAD", parsed.error.message);
     const { cardIndex } = parsed.data;
 
-    const sessionId = getSessionId(socket);
-    if (!sessionId) return emitError(socket, "NO_SESSION", "No session.");
-
-    const player = await prisma.player.findFirst({ where: { sessionId } });
-    if (!player) return emitError(socket, "SESSION_NOT_FOUND", "Player not found.");
+    const player = await requirePlayer(socket);
+    if (!player) return emitError(socket, "NOT_IN_LOBBY", "You are not in a lobby.");
 
     const activeGame = await prisma.game.findFirst({
       where: { lobbyId: player.lobbyId, endedAt: null },
@@ -122,11 +119,8 @@ export function registerLegislativeHandlers(io: Server, socket: Socket) {
     if (!parsed.success) return emitError(socket, "INVALID_PAYLOAD", parsed.error.message);
     const { cardIndex } = parsed.data;
 
-    const sessionId = getSessionId(socket);
-    if (!sessionId) return emitError(socket, "NO_SESSION", "No session.");
-
-    const player = await prisma.player.findFirst({ where: { sessionId } });
-    if (!player) return emitError(socket, "SESSION_NOT_FOUND", "Player not found.");
+    const player = await requirePlayer(socket);
+    if (!player) return emitError(socket, "NOT_IN_LOBBY", "You are not in a lobby.");
 
     const activeGame = await prisma.game.findFirst({
       where: { lobbyId: player.lobbyId, endedAt: null },
@@ -274,11 +268,8 @@ export function registerLegislativeHandlers(io: Server, socket: Socket) {
   // ── VETO_REQUEST ────────────────────────────────────────────────────────────
 
   socket.on(SOCKET_EVENTS.LEGISLATIVE_VETO_REQUEST, async () => {
-    const sessionId = getSessionId(socket);
-    if (!sessionId) return emitError(socket, "NO_SESSION", "No session.");
-
-    const player = await prisma.player.findFirst({ where: { sessionId } });
-    if (!player) return emitError(socket, "SESSION_NOT_FOUND", "Player not found.");
+    const player = await requirePlayer(socket);
+    if (!player) return emitError(socket, "NOT_IN_LOBBY", "You are not in a lobby.");
 
     const activeGame = await prisma.game.findFirst({
       where: { lobbyId: player.lobbyId, endedAt: null },
@@ -313,11 +304,8 @@ export function registerLegislativeHandlers(io: Server, socket: Socket) {
     if (!parsed.success) return emitError(socket, "INVALID_PAYLOAD", parsed.error.message);
     const { accept } = parsed.data;
 
-    const sessionId = getSessionId(socket);
-    if (!sessionId) return emitError(socket, "NO_SESSION", "No session.");
-
-    const player = await prisma.player.findFirst({ where: { sessionId } });
-    if (!player) return emitError(socket, "SESSION_NOT_FOUND", "Player not found.");
+    const player = await requirePlayer(socket);
+    if (!player) return emitError(socket, "NOT_IN_LOBBY", "You are not in a lobby.");
 
     const activeGame = await prisma.game.findFirst({
       where: { lobbyId: player.lobbyId, endedAt: null },

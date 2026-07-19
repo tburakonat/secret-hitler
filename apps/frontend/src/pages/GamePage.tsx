@@ -15,7 +15,6 @@ import { RoleCard } from '../components/game/RoleCard';
 import { useSocketEvents } from '../hooks/useSocketEvents';
 import { useGameStore } from '../stores/gameStore';
 import { useLobbyStore } from '../stores/lobbyStore';
-import { useSessionStore } from '../stores/sessionStore';
 import { connectAndReconnect, emitGameAbort } from '../lib/socket';
 import type { LobbyUpdatedPayload, PolicyType, GameAbortedPayload } from '@secret-hitler/shared';
 import type {
@@ -72,11 +71,9 @@ export default function GamePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const sessionId = useSessionStore((s) => s.sessionId);
-
   useEffect(() => {
-    if (sessionId) connectAndReconnect();
-  }, [sessionId]);
+    connectAndReconnect();
+  }, []);
 
   const {
     phase,

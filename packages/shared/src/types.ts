@@ -62,17 +62,15 @@ export interface GameStateSync {
 // ─── Client → Server payloads ────────────────────────────────────────────────
 
 export interface LobbyCreatePayload {
-  nickname: string;
   isPublic: boolean;
   maxPlayers: number;
 }
 
 export interface LobbyJoinPayload {
-  nickname: string;
   code?: string;
 }
 
-/** Reconnect carries no data — the server derives the session from the handshake cookie. */
+/** Reconnect carries no data — the server derives the user from the authToken handshake cookie. */
 export type LobbyReconnectPayload = Record<string, never>;
 
 export interface NominationChancellorPayload {
@@ -218,11 +216,19 @@ export interface ErrorPayload {
 export interface AuthUser {
   id: string;
   email: string;
+  nickname: string;
 }
 
-/** Request body for both POST /api/auth/register and POST /api/auth/login */
+/** Request body for POST /api/auth/login */
 export interface AuthCredentials {
   email: string;
+  password: string;
+}
+
+/** Request body for POST /api/auth/register */
+export interface RegisterPayload {
+  email: string;
+  nickname: string;
   password: string;
 }
 
@@ -230,4 +236,9 @@ export interface MeResponse {
   user: AuthUser | null;
 }
 
-export type AuthErrorCode = 'INVALID_INPUT' | 'INVALID_CREDENTIALS' | 'EMAIL_TAKEN' | 'RATE_LIMITED';
+export type AuthErrorCode =
+  | 'INVALID_INPUT'
+  | 'INVALID_CREDENTIALS'
+  | 'EMAIL_TAKEN'
+  | 'NICKNAME_TAKEN'
+  | 'RATE_LIMITED';

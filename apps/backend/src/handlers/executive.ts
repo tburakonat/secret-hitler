@@ -6,7 +6,7 @@ import {
   type GameStateSync,
 } from "@secret-hitler/shared";
 import { prisma } from "../lib/prisma.js";
-import { getSessionId } from "../session.js";
+import { requirePlayer } from "../lib/socketAuth.js";
 import { getNextPresidentId, getExecutiveAction } from "../game/engine.js";
 import { getGameState, setGameState } from "../game/state.js";
 import { endGame } from "./endGame.js";
@@ -35,11 +35,8 @@ export function registerExecutiveHandlers(io: Server, socket: Socket) {
     if (!parsed.success) return emitError(socket, "INVALID_PAYLOAD", parsed.error.message);
     const { targetId } = parsed.data;
 
-    const sessionId = getSessionId(socket);
-    if (!sessionId) return emitError(socket, "NO_SESSION", "No session.");
-
-    const player = await prisma.player.findFirst({ where: { sessionId } });
-    if (!player) return emitError(socket, "SESSION_NOT_FOUND", "Player not found.");
+    const player = await requirePlayer(socket);
+    if (!player) return emitError(socket, "NOT_IN_LOBBY", "You are not in a lobby.");
 
     const activeGame = await prisma.game.findFirst({
       where: { lobbyId: player.lobbyId, endedAt: null },
@@ -157,11 +154,8 @@ export function registerExecutiveHandlers(io: Server, socket: Socket) {
   });
 
   socket.on(SOCKET_EVENTS.EXECUTIVE_INSPECT_CONFIRM, async () => {
-    const sessionId = getSessionId(socket);
-    if (!sessionId) return emitError(socket, "NO_SESSION", "No session.");
-
-    const player = await prisma.player.findFirst({ where: { sessionId } });
-    if (!player) return emitError(socket, "SESSION_NOT_FOUND", "Player not found.");
+    const player = await requirePlayer(socket);
+    if (!player) return emitError(socket, "NOT_IN_LOBBY", "You are not in a lobby.");
 
     const activeGame = await prisma.game.findFirst({
       where: { lobbyId: player.lobbyId, endedAt: null },
@@ -199,11 +193,8 @@ export function registerExecutiveHandlers(io: Server, socket: Socket) {
   });
 
   socket.on(SOCKET_EVENTS.EXECUTIVE_PEEK_CONFIRM, async () => {
-    const sessionId = getSessionId(socket);
-    if (!sessionId) return emitError(socket, "NO_SESSION", "No session.");
-
-    const player = await prisma.player.findFirst({ where: { sessionId } });
-    if (!player) return emitError(socket, "SESSION_NOT_FOUND", "Player not found.");
+    const player = await requirePlayer(socket);
+    if (!player) return emitError(socket, "NOT_IN_LOBBY", "You are not in a lobby.");
 
     const activeGame = await prisma.game.findFirst({
       where: { lobbyId: player.lobbyId, endedAt: null },

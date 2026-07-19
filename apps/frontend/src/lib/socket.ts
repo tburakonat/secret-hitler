@@ -12,6 +12,7 @@ import {
   type LegislativeVetoResponsePayload,
   type ExecutiveChoosePlayerPayload,
 } from '@secret-hitler/shared';
+import { useAuthStore } from '../stores/authStore';
 
 // Leer = same-origin (nginx-Proxy in Prod, Vite-Proxy in Dev). Nur für Split-Deployments gesetzt.
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? '';
@@ -25,6 +26,15 @@ const socketOptions = {
 export const socket: Socket<any, any> = BACKEND_URL
   ? io(BACKEND_URL, socketOptions)
   : io(socketOptions);
+
+// Handshake abgelehnt (kein/abgelaufenes authToken-Cookie): Reconnect-Loop
+// stoppen und den Auth-State kippen — der Router-Guard leitet dann zu /login.
+socket.on('connect_error', (err: Error) => {
+  if (err.message === 'UNAUTHORIZED') {
+    socket.disconnect();
+    useAuthStore.getState().clearUser();
+  }
+});
 
 // ─── Typisierte Emit-Wrapper ──────────────────────────────────────────────────
 

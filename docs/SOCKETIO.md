@@ -14,24 +14,26 @@ All incoming payloads (`C → S`) are validated with Zod on the server before pr
 
 Event name constants are defined in `packages/shared/constants.ts` to avoid typo bugs. Always import from there, never hardcode strings.
 
+**Handshake authentication:** every connection must carry a valid `authToken` cookie. An `io.use` middleware resolves it to `socket.data.userId` once; invalid or missing sessions are rejected with `connect_error` (message `UNAUTHORIZED`). Handlers identify the player via the unique `Player.userId`.
+
 ---
 
 ## Lobby events
 
 ### `lobby:create` — C → S
-Create a new lobby. Server generates the 6-character invite code.
+Create a new lobby. Server generates the 6-character invite code. The player's nickname comes from their account.
 ```typescript
-{ nickname: string, isPublic: boolean, maxPlayers: number }
+{ isPublic: boolean, maxPlayers: number }
 ```
 
 ### `lobby:join` — C → S
-Join a lobby by code (private) or without a code (random public lobby).
+Join a lobby by code (private) or without a code (random public lobby). The player's nickname comes from their account.
 ```typescript
-{ nickname: string, code?: string }
+{ code?: string }
 ```
 
 ### `lobby:reconnect` — C → S
-Sent immediately on (re)connect if the client has a sessionId cookie. The server derives the session from the handshake cookie (never from the payload — a client-supplied sessionId would allow impersonation), finds the player, updates socketId, and sends current state.
+Sent on mount of the lobby/game pages (page reload). The server identifies the player via the authenticated `userId` from the handshake (never from a payload), updates socketId, and re-sends current state including the private role.
 ```typescript
 {} // no payload
 ```

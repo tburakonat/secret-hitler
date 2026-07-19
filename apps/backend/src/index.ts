@@ -4,10 +4,9 @@ import fastifyCookie from "@fastify/cookie";
 import fastifyCors from "@fastify/cors";
 import fastifyRateLimit from "@fastify/rate-limit";
 import { Server as SocketIOServer } from "socket.io";
-import { v4 as uuidv4 } from "uuid";
 import { prisma } from "./lib/prisma.js";
 import { redis } from "./lib/redis.js";
-import { cookieOptions } from "./lib/auth.js";
+import { getUserId, socketAuthMiddleware } from "./lib/socketAuth.js";
 import { authRoutes } from "./routes/auth.js";
 import { registerLobbyHandlers } from "./handlers/lobby.js";
 import { registerNominationHandlers } from "./handlers/nomination.js";
@@ -72,16 +71,7 @@ async function main() {
 
   fastify.get("/health", async () => ({ status: "ok" }));
 
-  fastify.get("/api/session", async (request, reply) => {
-    let sessionId = request.cookies.sessionId;
-    if (!sessionId) {
-      sessionId = uuidv4();
-      reply.setCookie("sessionId", sessionId, cookieOptions());
-    }
-    return { sessionId };
-  });
-
-  await fastify.register(authRoutes, { prefix: "/api/auth" });
+  await fastify.register(authRoutes, { prefix: "/api/auth", io });
 
   fastify.get("/api/lobbies", async () => {
     const lobbies = await prisma.lobby.findMany({
@@ -93,8 +83,14 @@ async function main() {
 
   // ─── Socket.io ─────────────────────────────────────────────────────────────
 
+  // Reject unauthenticated connections at the handshake; sets socket.data.userId.
+  io.use(socketAuthMiddleware);
+
   io.on("connection", (socket) => {
-    fastify.log.info({ socketId: socket.id }, "client connected");
+    fastify.log.info({ socketId: socket.id, userId: getUserId(socket) }, "client connected");
+
+    // Per-user room so logout can force-disconnect all of a user's sockets.
+    socket.join(`user:${getUserId(socket)}`);
 
     registerLobbyHandlers(io, socket);
     registerNominationHandlers(io, socket);

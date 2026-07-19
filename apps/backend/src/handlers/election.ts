@@ -6,7 +6,7 @@ import {
   type GameStateSync,
 } from "@secret-hitler/shared";
 import { prisma } from "../lib/prisma.js";
-import { getSessionId } from "../session.js";
+import { requirePlayer } from "../lib/socketAuth.js";
 import { countVotes, drawCards, getNextPresidentId, checkWinCondition } from "../game/engine.js";
 import { getGameState, setGameState } from "../game/state.js";
 import { endGame } from "./endGame.js";
@@ -37,11 +37,8 @@ export function registerElectionHandlers(io: Server, socket: Socket) {
     }
     const { vote } = parsed.data;
 
-    const sessionId = getSessionId(socket);
-    if (!sessionId) return emitError(socket, "NO_SESSION", "No session.");
-
-    const player = await prisma.player.findFirst({ where: { sessionId } });
-    if (!player) return emitError(socket, "SESSION_NOT_FOUND", "Player not found.");
+    const player = await requirePlayer(socket);
+    if (!player) return emitError(socket, "NOT_IN_LOBBY", "You are not in a lobby.");
     if (!player.isAlive) return emitError(socket, "PLAYER_DEAD", "Dead players cannot vote.");
 
     const activeGame = await prisma.game.findFirst({

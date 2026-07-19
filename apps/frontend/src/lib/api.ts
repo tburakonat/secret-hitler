@@ -1,15 +1,7 @@
-import type { AuthCredentials, AuthErrorCode, AuthUser, MeResponse } from '@secret-hitler/shared';
+import type { AuthCredentials, AuthErrorCode, AuthUser, MeResponse, RegisterPayload } from '@secret-hitler/shared';
 
 // Leer = same-origin (nginx-Proxy in Prod, Vite-Proxy in Dev). Nur für Split-Deployments gesetzt.
 const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? '';
-
-/** Holt oder erstellt die sessionId via HTTP-Cookie. Muss vor socket.connect() aufgerufen werden. */
-export async function initSession(): Promise<string> {
-  const res = await fetch(`${BACKEND_URL}/api/session`, { credentials: 'include' });
-  if (!res.ok) throw new Error('Session konnte nicht initialisiert werden.');
-  const data = await res.json() as { sessionId: string };
-  return data.sessionId;
-}
 
 export async function fetchLobbies() {
   const res = await fetch(`${BACKEND_URL}/api/lobbies`, { credentials: 'include' });
@@ -26,7 +18,7 @@ export class AuthApiError extends Error {
   }
 }
 
-async function authPost(path: string, body: AuthCredentials): Promise<AuthUser> {
+async function authPost(path: string, body: AuthCredentials | RegisterPayload): Promise<AuthUser> {
   const res = await fetch(`${BACKEND_URL}/api/auth/${path}`, {
     method: 'POST',
     credentials: 'include',
@@ -41,7 +33,7 @@ async function authPost(path: string, body: AuthCredentials): Promise<AuthUser> 
   return data.user;
 }
 
-export const register = (creds: AuthCredentials) => authPost('register', creds);
+export const register = (payload: RegisterPayload) => authPost('register', payload);
 export const login = (creds: AuthCredentials) => authPost('login', creds);
 
 export async function logout(): Promise<void> {

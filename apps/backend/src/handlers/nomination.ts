@@ -6,7 +6,7 @@ import {
   type GameStateSync,
 } from "@secret-hitler/shared";
 import { prisma } from "../lib/prisma.js";
-import { getSessionId } from "../session.js";
+import { requirePlayer } from "../lib/socketAuth.js";
 import { getEligibleChancellors } from "../game/engine.js";
 import { getGameState, setGameState } from "../game/state.js";
 
@@ -26,11 +26,8 @@ export function registerNominationHandlers(io: Server, socket: Socket) {
     }
     const { chancellorId } = parsed.data;
 
-    const sessionId = getSessionId(socket);
-    if (!sessionId) return emitError(socket, "NO_SESSION", "No session.");
-
-    const player = await prisma.player.findFirst({ where: { sessionId } });
-    if (!player) return emitError(socket, "SESSION_NOT_FOUND", "Player not found.");
+    const player = await requirePlayer(socket);
+    if (!player) return emitError(socket, "NOT_IN_LOBBY", "You are not in a lobby.");
 
     // Find the active game for this player's lobby
     const activeGame = await prisma.game.findFirst({

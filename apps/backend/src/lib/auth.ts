@@ -3,7 +3,6 @@ import type { CookieSerializeOptions } from "@fastify/cookie";
 import type { FastifyRequest } from "fastify";
 import type { Socket } from "socket.io";
 import { prisma } from "./prisma.js";
-import { getCookie } from "../session.js";
 
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN;
 
@@ -19,6 +18,22 @@ export function cookieOptions(): CookieSerializeOptions {
     secure: CLIENT_ORIGIN ? true : process.env.COOKIE_SECURE === "true",
     path: "/",
   };
+}
+
+/**
+ * Parses a single cookie value from the socket's HTTP handshake cookie header.
+ * Returns null if the cookie is absent or unparseable.
+ */
+export function getCookie(socket: Socket, name: string): string | null {
+  const raw = socket.handshake.headers.cookie;
+  if (!raw) return null;
+
+  for (const part of raw.split(";")) {
+    const [key, ...rest] = part.trim().split("=");
+    if (key === name) return rest.join("=");
+  }
+
+  return null;
 }
 
 // Only the sha256 of the token is persisted, so a DB dump cannot be replayed as a cookie.

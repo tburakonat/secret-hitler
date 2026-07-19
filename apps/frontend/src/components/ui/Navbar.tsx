@@ -1,7 +1,12 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { logout } from '../../lib/api';
+import { socket } from '../../lib/socket';
 import { useAuthStore } from '../../stores/authStore';
+import { useLobbyStore } from '../../stores/lobbyStore';
+import { useGameStore } from '../../stores/gameStore';
+import { Button } from './Button';
 
 const LANGUAGES = ['de', 'en', 'tr'] as const;
 type Lang = typeof LANGUAGES[number];
@@ -14,8 +19,14 @@ const LANGUAGE_LABELS: Record<Lang, string> = {
 
 export function Navbar() {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const clearUser = useAuthStore((s) => s.clearUser);
+  const lobbyId = useLobbyStore((s) => s.lobbyId);
+  const phase = useGameStore((s) => s.phase);
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const baseLang = i18n.language.split('-')[0];
   const current: Lang = (LANGUAGES as readonly string[]).includes(baseLang)
@@ -27,11 +38,33 @@ export function Navbar() {
     localStorage.setItem('language', lang);
   }
 
-  // Fasst Socket/Lobby bewusst nicht an — die Spiel-Identität hängt am
-  // sessionId-Cookie, nicht am Login.
-  async function handleLogout() {
-    await logout();
-    clearUser();
+  const gameRunning = phase !== null && phase !== 'game_over';
+
+  function handleLogoutClick() {
+    // In einer Lobby oder laufenden Runde hat der Logout Nebenwirkungen
+    // (Lobby verlassen bzw. Spielabbruch für alle) — vorher bestätigen lassen.
+    if (lobbyId) {
+      setConfirmOpen(true);
+    } else {
+      void doLogout();
+    }
+  }
+
+  async function doLogout() {
+    setLoggingOut(true);
+    try {
+      // Der Server räumt auf (Lobby verlassen / Spiel abbrechen) und trennt
+      // alle Sockets dieses Users.
+      await logout();
+    } finally {
+      clearUser();
+      useLobbyStore.getState().reset();
+      useGameStore.getState().reset();
+      socket.disconnect();
+      setConfirmOpen(false);
+      setLoggingOut(false);
+      navigate('/login');
+    }
   }
 
   return (
@@ -41,9 +74,9 @@ export function Navbar() {
       <div className="flex items-center gap-3">
         {user ? (
           <>
-            <span className="max-w-40 truncate text-xs text-gray-400">{user.email}</span>
+            <span className="max-w-40 truncate text-xs text-gray-400">{user.nickname}</span>
             <button
-              onClick={handleLogout}
+              onClick={handleLogoutClick}
               className="text-xs font-medium text-gray-300 hover:text-white"
             >
               {t('auth.logout')}
@@ -67,6 +100,25 @@ export function Navbar() {
           ))}
         </select>
       </div>
+
+      {confirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-lg border border-gray-700 bg-gray-900 p-6">
+            <h2 className="text-lg font-semibold text-white">{t('auth.logoutConfirmTitle')}</h2>
+            <p className="mt-2 text-sm text-gray-300">
+              {gameRunning ? t('auth.logoutConfirmGame') : t('auth.logoutConfirmLobby')}
+            </p>
+            <div className="mt-5 flex justify-end gap-3">
+              <Button variant="ghost" onClick={() => setConfirmOpen(false)} disabled={loggingOut}>
+                {t('common.cancel')}
+              </Button>
+              <Button onClick={() => void doLogout()} disabled={loggingOut}>
+                {loggingOut ? t('common.loading') : t('auth.logoutConfirmButton')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }

@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
 import { AuthApiError, login, register } from '../lib/api';
+import { socket } from '../lib/socket';
 import { useAuthStore } from '../stores/authStore';
 
 type Tab = 'login' | 'register';
@@ -17,6 +18,7 @@ export default function LoginPage() {
 
   const [tab, setTab] = useState<Tab>('login');
   const [email, setEmail] = useState('');
+  const [nickname, setNickname] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -26,9 +28,13 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const action = tab === 'login' ? login : register;
-      const user = await action({ email: email.trim(), password });
+      const user = tab === 'login'
+        ? await login({ email: email.trim(), password })
+        : await register({ email: email.trim(), nickname: nickname.trim(), password });
       setUser(user);
+      // Falls ein Socket mit unauthentifiziertem Handshake existiert: trennen,
+      // damit die nächste Verbindung das frische authToken-Cookie mitschickt.
+      socket.disconnect();
       navigate('/');
     } catch (err) {
       const code = err instanceof AuthApiError ? err.code : 'GENERIC';
@@ -84,6 +90,18 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               maxLength={255}
             />
+
+            {tab === 'register' && (
+              <Input
+                id="nickname"
+                autoComplete="username"
+                label={t('auth.nickname')}
+                placeholder={t('auth.nicknamePlaceholder')}
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                maxLength={32}
+              />
+            )}
 
             <div className="space-y-1">
               <Input
