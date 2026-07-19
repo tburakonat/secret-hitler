@@ -4,8 +4,11 @@
 #   docker build -f apps/backend/Dockerfile .
 
 FROM node:20-slim AS base
+# python3/make/g++: argon2 is a native module; its install script falls back to
+# compiling from source (node-gyp), which needs a toolchain. Build stages only —
+# the runner stage below stays slim.
 RUN apt-get update -y \
-    && apt-get install -y --no-install-recommends openssl \
+    && apt-get install -y --no-install-recommends openssl python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 RUN npm install -g turbo@2.9.18
