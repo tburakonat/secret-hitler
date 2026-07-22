@@ -165,6 +165,75 @@ const de = {
       cancelButton: 'Abbrechen',
     },
   },
+  rules: {
+    navLabel: 'Regeln',
+    title: 'Spielregeln',
+    sections: {
+      overview: {
+        title: 'Überblick & Rollen',
+        intro:
+          'Secret Hitler ist ein Sozial-Deduktionsspiel für 5–10 Spieler. Die Spieler werden geheim in Liberale und Faschisten aufgeteilt. Die Faschisten kennen sich gegenseitig; die Liberalen wissen nicht, wer zu welcher Seite gehört. Ein Faschist ist geheim Hitler.',
+        tableHeaders: ['Spieler', 'Liberale', 'Faschisten', 'Hitler'],
+        tableRows: [
+          ['5', '3', '1', '1'],
+          ['6', '4', '1', '1'],
+          ['7', '4', '2', '1'],
+          ['8', '5', '2', '1'],
+          ['9', '5', '3', '1'],
+          ['10', '6', '3', '1'],
+        ],
+        note: 'Bei 5 Spielern erfährt Hitler, wer der eine Faschist ist. Ab 6 Spielern kennt Hitler die anderen Faschisten nicht.',
+        deck: 'Der Nachziehstapel besteht aus 17 Gesetzeskarten: 11 faschistische, 6 liberale. Sind weniger als 3 Karten übrig, wird der Ablagestapel neu gemischt.',
+      },
+      roundStructure: {
+        title: 'Rundenablauf',
+        steps: [
+          {
+            heading: '1. Nominierung',
+            body: 'Der amtierende Präsident schlägt einen Kanzlerkandidaten vor. Die Präsidenten und Kanzler der letzten Runde sind nicht wählbar (bei nur 5 lebenden Spielern gilt das nur für den letzten Kanzler).',
+          },
+          {
+            heading: '2. Abstimmung',
+            body: 'Alle lebenden Spieler stimmen gleichzeitig mit Ja oder Nein ab. Die Mehrheit entscheidet, bei Gleichstand gilt die Wahl als abgelehnt. Scheitert die Wahl, steigt der Wahlzähler um 1 – bei 3 erreicht er sein Maximum und die oberste Karte wird automatisch erlassen.',
+          },
+          {
+            heading: '3. Gesetzgebung',
+            body: 'Bei erfolgreicher Wahl zieht der Präsident 3 Karten, verwirft davon verdeckt 1 Karte und reicht die restlichen 2 an den Kanzler weiter. Der Kanzler erlässt 1 der beiden Karten und verwirft die andere verdeckt.',
+          },
+          {
+            heading: '4. Exekutivaktion',
+            body: 'Wurde ein faschistisches Gesetz erlassen, muss der Präsident je nach Spieleranzahl und Anzahl erlassener faschistischer Gesetze eventuell eine Exekutivaktion durchführen.',
+          },
+          {
+            heading: '5. Nächste Runde',
+            body: 'Das Präsidentenamt wandert im Uhrzeigersinn zum nächsten lebenden Spieler weiter.',
+          },
+        ],
+      },
+      executiveActions: {
+        title: 'Exekutivaktionen',
+        intro:
+          'Welche Aktion fällig wird, hängt von der Spieleranzahl und davon ab, wie viele faschistische Gesetze bereits erlassen wurden.',
+        actions: [
+          { name: 'Parteikarte untersuchen', body: 'Der Präsident sieht geheim die Parteizugehörigkeit eines Spielers (nur „liberal“ oder „faschistisch“ – nie die genaue Rolle, Hitler erscheint also als „faschistisch“).' },
+          { name: 'Karten ansehen', body: 'Der Präsident sieht geheim die obersten 3 Karten des Nachziehstapels.' },
+          { name: 'Sonderwahl', body: 'Der Präsident bestimmt einen beliebigen lebenden Spieler (auch sich selbst) als nächsten Präsidentschaftskandidaten. Danach kehrt das Amt zur normalen Reihenfolge zurück.' },
+          { name: 'Exekution', body: 'Der Präsident lässt einen lebenden Spieler hinrichten. Ist es Hitler, gewinnen die Liberalen sofort.' },
+          { name: 'Veto (ab dem 5. faschistischen Gesetz)', body: 'Der Kanzler kann vorschlagen, beide Karten zu verwerfen. Stimmt der Präsident zu, werden beide Karten abgelegt und der Wahlzähler steigt um 1. Lehnt er ab, muss der Kanzler eine der beiden Karten erlassen.' },
+        ],
+      },
+      winConditions: {
+        title: 'Siegbedingungen',
+        liberalsTitle: 'Liberale gewinnen, wenn:',
+        liberals: ['5 liberale Gesetze erlassen wurden', 'Hitler hingerichtet wird'],
+        fascistsTitle: 'Faschisten gewinnen, wenn:',
+        fascists: [
+          '6 faschistische Gesetze erlassen wurden',
+          'Hitler nach dem 3. faschistischen Gesetz zum Kanzler gewählt wird',
+        ],
+      },
+    },
+  },
 };
 
 const en: typeof de = {
@@ -331,6 +400,75 @@ const en: typeof de = {
       cancelButton: 'Cancel',
     },
   },
+  rules: {
+    navLabel: 'Rules',
+    title: 'Game Rules',
+    sections: {
+      overview: {
+        title: 'Overview & Roles',
+        intro:
+          'Secret Hitler is a social deduction game for 5–10 players. Players are secretly divided into Liberals and Fascists. The Fascists know each other; the Liberals do not know who is on which side. One Fascist is secretly Hitler.',
+        tableHeaders: ['Players', 'Liberals', 'Fascists', 'Hitler'],
+        tableRows: [
+          ['5', '3', '1', '1'],
+          ['6', '4', '1', '1'],
+          ['7', '4', '2', '1'],
+          ['8', '5', '2', '1'],
+          ['9', '5', '3', '1'],
+          ['10', '6', '3', '1'],
+        ],
+        note: 'In a 5-player game, Hitler is shown who the one Fascist is. In 6+ player games, Hitler does not know the other Fascists.',
+        deck: 'The draw pile has 17 policy cards: 11 fascist, 6 liberal. When fewer than 3 cards remain, the discard pile is reshuffled into a new draw pile.',
+      },
+      roundStructure: {
+        title: 'Round Structure',
+        steps: [
+          {
+            heading: '1. Nomination',
+            body: 'The current President nominates a Chancellor candidate. The previous round\'s President and Chancellor cannot be nominated (with only 5 players alive, only the previous Chancellor is ineligible).',
+          },
+          {
+            heading: '2. Election',
+            body: 'All living players vote simultaneously: Ja or Nein. Majority wins; ties count as Nein. If the vote fails, the Election Tracker advances by 1 – at 3 it maxes out and the top card is enacted automatically.',
+          },
+          {
+            heading: '3. Legislative Session',
+            body: 'On a successful election, the President draws 3 cards, discards 1 face-down, and passes the remaining 2 to the Chancellor. The Chancellor enacts 1 of the two cards and discards the other face-down.',
+          },
+          {
+            heading: '4. Executive Action',
+            body: 'After a fascist policy is enacted, the President may need to perform an executive action depending on the player count and how many fascist policies have been enacted.',
+          },
+          {
+            heading: '5. Next Round',
+            body: 'The Presidency passes clockwise to the next living player.',
+          },
+        ],
+      },
+      executiveActions: {
+        title: 'Executive Actions',
+        intro:
+          'Which action applies depends on the player count and how many fascist policies have already been enacted.',
+        actions: [
+          { name: 'Inspect Loyalty', body: 'The President secretly views a player\'s party membership (only "liberal" or "fascist" – never the exact role, so Hitler shows as "fascist").' },
+          { name: 'Policy Peek', body: 'The President secretly views the top 3 cards of the draw pile.' },
+          { name: 'Special Election', body: 'The President chooses any living player (including themselves) as the next Presidential candidate. After that round, the Presidency returns to the normal rotation.' },
+          { name: 'Execution', body: 'The President executes one living player. If it is Hitler, the Liberals win immediately.' },
+          { name: 'Veto (unlocked after the 5th fascist policy)', body: 'The Chancellor may propose to veto both cards. If the President agrees, both cards are discarded and the Election Tracker advances by 1. If the President disagrees, the Chancellor must enact one of the two cards.' },
+        ],
+      },
+      winConditions: {
+        title: 'Win Conditions',
+        liberalsTitle: 'Liberals win if:',
+        liberals: ['5 liberal policies are enacted', 'Hitler is executed'],
+        fascistsTitle: 'Fascists win if:',
+        fascists: [
+          '6 fascist policies are enacted',
+          'Hitler is elected Chancellor after the 3rd fascist policy has been enacted',
+        ],
+      },
+    },
+  },
 };
 
 const tr: typeof de = {
@@ -495,6 +633,75 @@ const tr: typeof de = {
       confirmDescription: 'Tüm oyuncular lobiye geri döner.',
       confirmButton: 'Evet, iptal et',
       cancelButton: 'İptal',
+    },
+  },
+  rules: {
+    navLabel: 'Kurallar',
+    title: 'Oyun Kuralları',
+    sections: {
+      overview: {
+        title: 'Genel Bakış & Roller',
+        intro:
+          'Secret Hitler, 5–10 oyuncu için bir sosyal çıkarım oyunudur. Oyuncular gizlice Liberaller ve Faşistler olarak ikiye ayrılır. Faşistler birbirini tanır; Liberaller kimin hangi tarafta olduğunu bilmez. Faşistlerden biri gizlice Hitler\'dir.',
+        tableHeaders: ['Oyuncu', 'Liberal', 'Faşist', 'Hitler'],
+        tableRows: [
+          ['5', '3', '1', '1'],
+          ['6', '4', '1', '1'],
+          ['7', '4', '2', '1'],
+          ['8', '5', '2', '1'],
+          ['9', '5', '3', '1'],
+          ['10', '6', '3', '1'],
+        ],
+        note: '5 oyunculu oyunlarda Hitler, tek Faşistin kim olduğunu bilir. 6 ve üzeri oyunculu oyunlarda Hitler diğer Faşistleri tanımaz.',
+        deck: 'Çekme destesi 17 yasa kartından oluşur: 11 faşist, 6 liberal. Destede 3 karttan az kalırsa, atma destesi yeniden karılarak çekme destesi oluşturulur.',
+      },
+      roundStructure: {
+        title: 'Tur Akışı',
+        steps: [
+          {
+            heading: '1. Aday Gösterme',
+            body: 'Mevcut Başkan bir Şansölye adayı önerir. Önceki turun Başkanı ve Şansölyesi aday gösterilemez (sadece 5 oyuncu hayattaysa yalnızca önceki Şansölye aday olamaz).',
+          },
+          {
+            heading: '2. Oylama',
+            body: 'Hayatta olan tüm oyuncular aynı anda Evet ya da Hayır oyu verir. Çoğunluk kazanır; eşitlik durumunda Hayır sayılır. Oylama başarısız olursa Seçim Sayacı 1 artar – 3\'e ulaştığında en üstteki kart otomatik olarak kabul edilir.',
+          },
+          {
+            heading: '3. Yasama Süreci',
+            body: 'Oylama başarılı olursa Başkan 3 kart çeker, 1 kartı görünmeden atar ve kalan 2 kartı Şansölyeye verir. Şansölye bu iki karttan birini kabul eder, diğerini görünmeden atar.',
+          },
+          {
+            heading: '4. Yürütme Eylemi',
+            body: 'Bir faşist yasa kabul edildiğinde, oyuncu sayısına ve kabul edilen faşist yasa sayısına bağlı olarak Başkanın bir yürütme eylemi gerçekleştirmesi gerekebilir.',
+          },
+          {
+            heading: '5. Sıradaki Tur',
+            body: 'Başkanlık, saat yönünde bir sonraki hayatta kalan oyuncuya geçer.',
+          },
+        ],
+      },
+      executiveActions: {
+        title: 'Yürütme Eylemleri',
+        intro:
+          'Hangi eylemin uygulanacağı, oyuncu sayısına ve şu ana kadar kabul edilen faşist yasa sayısına bağlıdır.',
+        actions: [
+          { name: 'Parti Üyeliğini İncele', body: 'Başkan, bir oyuncunun parti üyeliğini gizlice görür (yalnızca "liberal" veya "faşist" – asla tam rol, bu yüzden Hitler de "faşist" olarak görünür).' },
+          { name: 'Kartlara Göz At', body: 'Başkan, çekme destesinin en üstteki 3 kartını gizlice görür.' },
+          { name: 'Özel Seçim', body: 'Başkan, hayatta olan herhangi bir oyuncuyu (kendisi dahil) bir sonraki Başkan adayı olarak seçer. O turdan sonra başkanlık normal sıraya döner.' },
+          { name: 'İdam', body: 'Başkan, hayatta olan bir oyuncuyu idam eder. İdam edilen Hitler ise Liberaller hemen kazanır.' },
+          { name: 'Veto (5. faşist yasadan sonra açılır)', body: 'Şansölye her iki kartı da veto etmeyi önerebilir. Başkan kabul ederse her iki kart da atılır ve Seçim Sayacı 1 artar. Başkan reddederse Şansölye iki karttan birini kabul etmek zorundadır.' },
+        ],
+      },
+      winConditions: {
+        title: 'Kazanma Koşulları',
+        liberalsTitle: 'Liberaller şu durumda kazanır:',
+        liberals: ['5 liberal yasa kabul edildiğinde', 'Hitler idam edildiğinde'],
+        fascistsTitle: 'Faşistler şu durumda kazanır:',
+        fascists: [
+          '6 faşist yasa kabul edildiğinde',
+          '3. faşist yasadan sonra Hitler Şansölye seçildiğinde',
+        ],
+      },
     },
   },
 };

@@ -7,6 +7,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useLobbyStore } from '../../stores/lobbyStore';
 import { useGameStore } from '../../stores/gameStore';
 import { Button } from './Button';
+import { RulesModal } from './RulesModal';
 
 const LANGUAGES = ['de', 'en', 'tr'] as const;
 type Lang = typeof LANGUAGES[number];
@@ -27,6 +28,7 @@ export function Navbar() {
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   const baseLang = i18n.language.split('-')[0];
   const current: Lang = (LANGUAGES as readonly string[]).includes(baseLang)
@@ -72,6 +74,15 @@ export function Navbar() {
       <span className="text-sm font-semibold tracking-wide text-white">Secret Hitler</span>
 
       <div className="flex items-center gap-3">
+        <button
+          onClick={() => setRulesOpen(true)}
+          aria-label={t('rules.navLabel')}
+          title={t('rules.navLabel')}
+          className="flex h-6 w-6 items-center justify-center rounded-full border border-gray-600 text-xs font-semibold text-gray-300 hover:border-gray-400 hover:text-white"
+        >
+          ?
+        </button>
+
         {user ? (
           <>
             <span className="max-w-40 truncate text-xs text-gray-400">{user.nickname}</span>
@@ -119,6 +130,8 @@ export function Navbar() {
           </div>
         </div>
       )}
+
+      {rulesOpen && <RulesModal onClose={() => setRulesOpen(false)} />}
     </nav>
   );
 }
