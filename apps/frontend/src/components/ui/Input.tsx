@@ -16,7 +16,7 @@ export function Input({ label, error, className, id, ...props }: InputProps) {
       <input
         id={id}
         className={clsx(
-          'h-10 rounded-md border border-gray-600 bg-gray-800 px-3 text-sm text-white placeholder:text-gray-500 focus:border-red-500 focus:outline-none',
+          'h-10 rounded-md border border-gray-600 bg-gray-800 px-3 text-base text-white placeholder:text-gray-500 focus:border-red-500 focus:outline-none',
           error && 'border-red-500',
           className,
         )}
